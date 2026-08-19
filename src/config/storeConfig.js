@@ -11,7 +11,9 @@ export const STORE_CONFIG = {
     pickupHours: 'จันทร์ - ศุกร์ เวลา 12:00 - 17:00 น.',
     phone: '089-123-4567',
     lineOfficial: '@arch_studentclub',
-    email: 'arch.studentclub@university.ac.th',
+    instagram: 'smoarchcmu',
+    instagramUrl: 'https://www.instagram.com/smoarchcmu/',
+    email: 'smoarchcmu@cmu.ac.th',
     shippingFee: 39,
     defaultDeadline: '2026-08-31T23:59:59'
   },

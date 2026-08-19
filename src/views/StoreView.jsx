@@ -64,10 +64,33 @@ export default function StoreView({ products, loading, onSelectProduct, onOpenSi
               </p>
             </div>
 
-            <div className="p-4 sm:p-6 bg-white rounded-2xl border border-zinc-200 shadow-xs sm:col-span-2 md:col-span-1">
-              <h4 className="font-bold text-zinc-900 text-sm">💬 ติดต่อสอบถามฝ่ายกิจกรรม</h4>
-              <p className="text-xs text-zinc-600 mt-2 font-mono">LINE: {STORE_CONFIG.faculty.lineOfficial}</p>
-              <p className="text-xs text-zinc-600 font-mono mt-0.5">โทรศัพท์: {STORE_CONFIG.faculty.phone}</p>
+            <div className="p-4 sm:p-6 bg-white rounded-2xl border border-zinc-200 shadow-xs sm:col-span-2 md:col-span-1 flex flex-col justify-between space-y-3">
+              <div>
+                <h4 className="font-bold text-zinc-900 text-sm flex items-center gap-1.5">
+                  <span>💬 ติดต่อสอบถาม</span>
+                  <span className="text-[10px] font-mono text-zinc-400">smoarchcmu</span>
+                </h4>
+                <p className="text-xs text-zinc-600 mt-2 leading-relaxed">
+                  หากมีข้อสงสัยเกี่ยวกับสินค้าหรือคำสั่งซื้อ สามารถทักสอบถามทีมงานสโมสรนักศึกษาได้โดยตรง
+                </p>
+              </div>
+
+              <div className="pt-2 border-t border-zinc-100 space-y-2">
+                <a
+                  href="https://www.instagram.com/smoarchcmu/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3.5 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
+                  title="เปิด Instagram @smoarchcmu"
+                >
+                  <span>📸 Instagram: @smoarchcmu</span>
+                  <span className="text-[11px]">↗</span>
+                </a>
+                <div className="text-[11px] text-zinc-500 font-mono flex items-center justify-between px-1">
+                  <span>โทรศัพท์:</span>
+                  <span className="font-bold text-zinc-700">{STORE_CONFIG.faculty.phone}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

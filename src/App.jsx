@@ -101,8 +101,19 @@ export default function App() {
         </main>
 
         {/* Footer */}
-        <footer className="bg-white border-t border-zinc-200 py-6 px-4 text-center text-xs text-zinc-600 font-mono space-y-1">
-          <div className="font-bold text-zinc-800 tracking-tight">smoarchcmu • Faculty of Architecture Chiang Mai University</div>
+        <footer className="bg-white border-t border-zinc-200 py-6 px-4 text-center text-xs text-zinc-600 font-mono space-y-2">
+          <div className="font-bold text-zinc-800 tracking-tight flex items-center justify-center gap-2 flex-wrap">
+            <span>smoarchcmu • Faculty of Architecture Chiang Mai University</span>
+            <a
+              href="https://www.instagram.com/smoarchcmu/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-purple-600 hover:text-pink-600 font-bold inline-flex items-center gap-1 transition-colors"
+              title="Instagram @smoarchcmu"
+            >
+              <span>📸 @smoarchcmu</span>
+            </a>
+          </div>
           <div className="text-[11.5px] text-zinc-500 max-w-2xl mx-auto leading-relaxed">
             📍 Faculty of Architecture Student Union Office, Chiang Mai University, Huay Kaew, Su Thep, Mueang, Chiang Mai, 50200
           </div>
