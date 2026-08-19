@@ -7,6 +7,7 @@ import ReceiptModal from './components/ReceiptModal';
 import TrackingModal from './components/TrackingModal';
 import SizeChartModal from './components/SizeChartModal';
 import { api } from './config/supabase';
+import { LanguageProvider } from './context/LanguageContext';
 
 export default function App() {
   const [isAdminView, setIsAdminView] = useState(false);
@@ -41,62 +42,67 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#fafbfc] text-[#0d0e12] font-thai">
-      
-      {/* Navigation */}
-      <Navbar
-        isAdminView={isAdminView}
-        onToggleAdmin={() => setIsAdminView(!isAdminView)}
-        onOpenTracking={() => setIsTrackingOpen(true)}
-      />
+    <LanguageProvider>
+      <div className="min-h-screen flex flex-col bg-[#fafbfc] text-[#0d0e12] font-thai">
+        
+        {/* Navigation */}
+        <Navbar
+          isAdminView={isAdminView}
+          onToggleAdmin={() => setIsAdminView(!isAdminView)}
+          onOpenTracking={() => setIsTrackingOpen(true)}
+        />
 
-      {/* Main View */}
-      <main className="flex-1">
-        {isAdminView ? (
-          <AdminView onBackToStore={() => setIsAdminView(false)} />
-        ) : (
-          <StoreView
-            products={products}
-            loading={loading}
-            onSelectProduct={(p) => setSelectedProduct(p)}
+        {/* Main View */}
+        <main className="flex-1">
+          {isAdminView ? (
+            <AdminView onBackToStore={() => setIsAdminView(false)} />
+          ) : (
+            <StoreView
+              products={products}
+              loading={loading}
+              onSelectProduct={(p) => setSelectedProduct(p)}
+              onOpenSizeChart={() => setIsSizeChartOpen(true)}
+            />
+          )}
+        </main>
+
+        {/* Footer */}
+        <footer className="bg-white border-t border-zinc-200 py-6 px-4 text-center text-xs text-zinc-600 font-mono space-y-1">
+          <div className="font-bold text-zinc-800 tracking-tight">smoarchcmu • Faculty of Architecture Chiang Mai University</div>
+          <div className="text-[11.5px] text-zinc-500 max-w-2xl mx-auto leading-relaxed">
+            📍 Faculty of Architecture Student Union Office, Chiang Mai University, Huay Kaew, Su Thep, Mueang, Chiang Mai, 50200
+          </div>
+        </footer>
+
+        {/* Modals */}
+        {selectedProduct && (
+          <OrderModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onSuccess={handleOrderSuccess}
             onOpenSizeChart={() => setIsSizeChartOpen(true)}
           />
         )}
-      </main>
 
-      {/* Footer */}
-      <footer className="bg-white border-t border-zinc-200 py-8 text-center text-xs text-zinc-500 font-mono">
-        <p>© 2026 Faculty of Architecture Student Club. Real-time powered by Supabase.</p>
-      </footer>
+        {completedOrder && (
+          <ReceiptModal
+            order={completedOrder}
+            product={selectedProduct}
+            onClose={() => setCompletedOrder(null)}
+          />
+        )}
 
-      {/* Modals */}
-      {selectedProduct && (
-        <OrderModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onSuccess={handleOrderSuccess}
-          onOpenSizeChart={() => setIsSizeChartOpen(true)}
+        <TrackingModal
+          isOpen={isTrackingOpen}
+          onClose={() => setIsTrackingOpen(false)}
         />
-      )}
 
-      {completedOrder && (
-        <ReceiptModal
-          order={completedOrder}
-          product={selectedProduct}
-          onClose={() => setCompletedOrder(null)}
+        <SizeChartModal
+          isOpen={isSizeChartOpen}
+          onClose={() => setIsSizeChartOpen(false)}
         />
-      )}
 
-      <TrackingModal
-        isOpen={isTrackingOpen}
-        onClose={() => setIsTrackingOpen(false)}
-      />
-
-      <SizeChartModal
-        isOpen={isSizeChartOpen}
-        onClose={() => setIsSizeChartOpen(false)}
-      />
-
-    </div>
+      </div>
+    </LanguageProvider>
   );
 }

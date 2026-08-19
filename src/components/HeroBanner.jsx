@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { formatDateThai } from '../utils/formatters';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function HeroBanner({ products }) {
+  const { t, lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState(null);
   const [targetDate, setTargetDate] = useState(null);
 
@@ -71,6 +73,14 @@ export default function HeroBanner({ products }) {
     };
   }, [products]);
 
+  const formattedDate = targetDate ? (
+    lang === 'en' 
+      ? targetDate.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      : lang === 'zh'
+      ? targetDate.toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
+      : formatDateThai(targetDate, true)
+  ) : '';
+
   return (
     <section className="relative bg-blueprint border-b border-zinc-200 overflow-hidden pt-12 pb-16 lg:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -78,14 +88,13 @@ export default function HeroBanner({ products }) {
           
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 text-white rounded-md text-xs font-mono mb-6 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
-            <span>OFFICIAL MERCHANDISE // ARCH 2026</span>
+            <span>{t.officialMerch}</span>
           </div>
 
           <h1 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl text-zinc-950 tracking-tight leading-[1.1]">
-            ARCHITECTURE <br className="hidden sm:inline" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-500">FACULTY T-SHIRT</span>
+            {t.heroTitle1} <br className="hidden sm:inline" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-500">{t.heroTitle2}</span>
           </h1>
-
 
         </div>
 
@@ -94,13 +103,13 @@ export default function HeroBanner({ products }) {
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-              <span>PRE-ORDER COUNTDOWN (REAL-TIME)</span>
+              <span>{t.countdownTag}</span>
             </div>
             <h3 className="text-lg sm:text-xl font-bold mt-1 tracking-tight">
-              นับถอยหลังปิดรับจองเสื้อ
+              {t.countdownTitle}
             </h3>
             <p className="text-xs text-amber-400/90 mt-1 font-mono">
-              {targetDate ? `🎯 กำหนดปิดรับจอง: ${formatDateThai(targetDate, true)}` : 'รับสินค้า ณ ห้องสโมสรนักศึกษา ตึกสถาปัตย์'}
+              {formattedDate ? `${t.deadlinePrefix} ${formattedDate}` : ''}
             </p>
           </div>
 
@@ -109,27 +118,27 @@ export default function HeroBanner({ products }) {
               <>
                 <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
                   <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.days).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">Days</span>
+                  <span className="text-[10px] text-zinc-400 uppercase">{t.daysUpper}</span>
                 </div>
                 <span className="text-zinc-600 text-xl font-bold">:</span>
                 <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
                   <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">Hours</span>
+                  <span className="text-[10px] text-zinc-400 uppercase">{t.hoursUpper}</span>
                 </div>
                 <span className="text-zinc-600 text-xl font-bold">:</span>
                 <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
                   <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">Mins</span>
+                  <span className="text-[10px] text-zinc-400 uppercase">{t.minsUpper}</span>
                 </div>
                 <span className="text-zinc-600 text-xl font-bold">:</span>
                 <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
                   <span className="text-xl sm:text-2xl font-bold text-amber-400">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">Secs</span>
+                  <span className="text-[10px] text-zinc-400 uppercase">{t.secsUpper}</span>
                 </div>
               </>
             ) : (
               <div className="px-4 py-2 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs flex items-center gap-2">
-                <span>🔴 ปิดรับการสั่งจองเสื้อรอบนี้แล้ว</span>
+                <span>{t.closedNotice}</span>
               </div>
             )}
           </div>

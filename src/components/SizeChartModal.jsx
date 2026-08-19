@@ -1,7 +1,10 @@
 import React from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function SizeChartModal({ isOpen, onClose }) {
+  const { t } = useLanguage();
+
   if (!isOpen) return null;
 
   return (
@@ -9,22 +12,22 @@ export default function SizeChartModal({ isOpen, onClose }) {
       <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden">
         
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
-          <h3 className="font-bold text-zinc-900 text-sm">ตารางขนาดเสื้อ (Size Chart Standard)</h3>
-          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700">✕</button>
+          <h3 className="font-bold text-zinc-900 text-sm">{t.sizeChartTitle}</h3>
+          <button type="button" onClick={onClose} className="text-zinc-400 hover:text-zinc-700 font-bold">✕</button>
         </div>
 
         <div className="p-6">
           <p className="text-xs text-zinc-500 mb-4">
-            ขนาดไซส์เสื้อทรงสตรีทโอเวอร์ไซส์ (หน่วยวัดเป็นนิ้ว) ผ้า Cotton Comb 100% เบอร์ 20 ซักไม่หด
+            {t.sizeUnitNote}
           </p>
 
           <table className="w-full border-collapse border border-zinc-200 rounded-lg overflow-hidden">
             <thead>
               <tr className="bg-zinc-900 text-white font-mono text-xs">
-                <th className="py-2.5 px-4 text-center">SIZE</th>
-                <th className="py-2.5 px-4 text-center">รอบอก (Chest)</th>
-                <th className="py-2.5 px-4 text-center">ความยาว (Length)</th>
-                <th className="py-2.5 px-4 text-center">ไหล่ (Shoulder)</th>
+                <th className="py-2.5 px-4 text-center">{t.sizeCol}</th>
+                <th className="py-2.5 px-4 text-center">{t.chestCol}</th>
+                <th className="py-2.5 px-4 text-center">{t.lengthCol}</th>
+                <th className="py-2.5 px-4 text-center">{t.shoulderCol}</th>
               </tr>
             </thead>
             <tbody>
@@ -40,7 +43,7 @@ export default function SizeChartModal({ isOpen, onClose }) {
           </table>
 
           <div className="mt-4 p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-xs">
-            💡 <strong>คำแนะนำ:</strong> หากชอบทรงหลวมสตรีทแวร์ แนะนำเพิ่ม 1 ไซส์จากขนาดปกติ
+            💡 <strong>Tip:</strong> Sizing recommendation: If you prefer an oversized streetwear fit, choose +1 size up.
           </div>
         </div>
 

@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { formatCurrency, getPromptPayQRUrl } from '../utils/formatters';
 import { api } from '../config/supabase';
+import { useLanguage } from '../context/LanguageContext';
 
 export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChart }) {
+  const { t } = useLanguage();
+
   const sizes = Array.isArray(product?.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL'];
   const colors = Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black'];
 
@@ -70,11 +73,11 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
   const handleFileChange = (file) => {
     if (!file) return;
     if (!file.type.match(/^image\//i)) {
-      alert('กรุณาเลือกไฟล์รูปภาพ (JPG, PNG, WEBP)');
+      alert(t.errImageFormat);
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      alert('ขนาดไฟล์ต้องไม่เกิน 5 MB');
+      alert(t.errImageSize);
       return;
     }
     setSlipFile(file);
@@ -84,16 +87,16 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!formData.fullName || formData.fullName.length < 3) return alert('กรุณากรอกชื่อ-นามสกุลจริง');
-    if (!formData.studentId || formData.studentId.length < 5) return alert('กรุณากรอกรหัสนักศึกษา');
-    if (!formData.yearOfStudy) return alert('กรุณาเลือกระดับชั้นปี');
-    if (!formData.major) return alert('กรุณาเลือกสาขาวิชา');
-    if (!formData.phone || formData.phone.length < 9) return alert('กรุณากรอกเบอร์โทรศัพท์ที่ติดต่อได้');
-    if (!formData.contact) return alert('กรุณากรอก LINE ID หรือ อีเมล');
-    if (deliveryMethod === 'shipping' && (!formData.address || formData.address.length < 10)) {
-      return alert('กรุณากรอกที่อยู่จัดส่งพัสดุให้ครบถ้วน');
+    if (!formData.fullName || formData.fullName.length < 2) return alert(t.errFullName);
+    if (!formData.studentId || formData.studentId.length < 4) return alert(t.errStudentId);
+    if (!formData.yearOfStudy) return alert(t.errYear);
+    if (!formData.major) return alert(t.errMajor);
+    if (!formData.phone || formData.phone.length < 8) return alert(t.errPhone);
+    if (!formData.contact) return alert(t.errContact);
+    if (deliveryMethod === 'shipping' && (!formData.address || formData.address.length < 8)) {
+      return alert(t.errAddress);
     }
-    if (!slipFile) return alert('กรุณาแนบสลิปหลักฐานการโอนเงิน');
+    if (!slipFile) return alert(t.errSlip);
 
     setIsSubmitting(true);
     try {
@@ -121,7 +124,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
       const created = await api.submitOrder(orderPayload);
       onSuccess(created, product);
     } catch (err) {
-      alert('เกิดข้อผิดพลาด: ' + err.message);
+      alert('Error: ' + (err.message || err));
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +138,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            <h3 className="font-bold text-zinc-900 text-base">แบบฟอร์มสั่งจองเสื้อ (Pre-Order Form)</h3>
+            <h3 className="font-bold text-zinc-900 text-base">{t.orderFormTitle}</h3>
           </div>
           <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-zinc-200/80 hover:bg-zinc-300 flex items-center justify-center text-zinc-700">
             ✕
@@ -158,9 +161,9 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 <button
                   type="button"
                   onClick={() => setShowBack(!showBack)}
-                  className="absolute bottom-3 right-3 px-3 py-1.5 bg-black/80 text-white text-xs font-mono rounded-lg"
+                  className="absolute bottom-3 right-3 px-3 py-1.5 bg-black/80 text-white text-xs font-mono rounded-lg shadow-sm"
                 >
-                  {showBack ? 'ดูด้านหน้า' : 'ดูด้านหลัง'}
+                  {showBack ? t.viewFront : t.viewBack}
                 </button>
               )}
             </div>
@@ -172,9 +175,9 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             </div>
 
             <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
-              <span className="text-xs font-mono text-zinc-600">ไม่แน่ใจขนาดไซส์?</span>
+              <span className="text-xs font-mono text-zinc-600">{t.unsureSize}</span>
               <button type="button" onClick={onOpenSizeChart} className="text-xs font-bold text-zinc-900 underline hover:text-amber-600">
-                ดูตารางไซส์
+                {t.viewSizeChartBtn}
               </button>
             </div>
           </div>
@@ -185,7 +188,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Options */}
             <div className="space-y-4 p-4 bg-zinc-50 rounded-xl border border-zinc-200">
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">1. เลือกไซส์ (SIZE):</label>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step1Size}</label>
                 <div className="flex flex-wrap gap-2">
                   {sizes.map((s) => (
                     <button
@@ -193,7 +196,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                       type="button"
                       onClick={() => setSize(s)}
                       className={`px-4 py-2 rounded-lg border font-mono text-sm font-medium transition-all ${
-                        size === s ? 'border-black bg-black text-white' : 'border-zinc-200 bg-white text-zinc-700'
+                        size === s ? 'border-black bg-black text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700'
                       }`}
                     >
                       {s}
@@ -203,7 +206,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               </div>
 
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">2. เลือกสี (COLOR):</label>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step2Color}</label>
                 <div className="flex flex-wrap gap-2">
                   {colors.map((c) => (
                     <button
@@ -211,7 +214,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                       type="button"
                       onClick={() => setColor(c)}
                       className={`px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                        color === c ? 'border-black bg-zinc-900 text-white' : 'border-zinc-200 bg-zinc-50 text-zinc-700'
+                        color === c ? 'border-black bg-zinc-900 text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700'
                       }`}
                     >
                       {c}
@@ -221,13 +224,13 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               </div>
 
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">3. จำนวน (QUANTITY):</label>
-                <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden">
-                  <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100">
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step3Qty}</label>
+                <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden shadow-xs">
+                  <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100 font-bold">
                     -
                   </button>
                   <span className="w-12 text-center font-mono font-bold text-sm">{quantity}</span>
-                  <button type="button" onClick={() => setQuantity(Math.min(20, quantity + 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100">
+                  <button type="button" onClick={() => setQuantity(Math.min(20, quantity + 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100 font-bold">
                     +
                   </button>
                 </div>
@@ -237,58 +240,58 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Customer Info */}
             <div className="space-y-4">
               <h5 className="text-xs font-mono font-bold text-zinc-900 uppercase pb-1 border-b border-zinc-200">
-                ข้อมูลผู้สั่งซื้อ (Customer Information)
+                {t.customerInfoTitle}
               </h5>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">ชื่อ-นามสกุลจริง *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.fullNameLabel}</label>
                   <input
                     type="text"
                     required
-                    placeholder="เช่น นายปวริศร สถาปัตย์พัฒนา"
+                    placeholder={t.fullNamePlaceholder}
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">รหัสนักศึกษา *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.studentIdLabel}</label>
                   <input
                     type="text"
                     required
-                    placeholder="เช่น 65010234567"
+                    placeholder={t.studentIdPlaceholder}
                     value={formData.studentId}
                     onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:bg-white"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">ระดับชั้นปี *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.yearLabel}</label>
                   <select
                     required
                     value={formData.yearOfStudy}
                     onChange={(e) => handleYearChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
                   >
-                    <option value="">-- เลือกระดับชั้นปี --</option>
+                    <option value="">{t.yearPlaceholder}</option>
                     {STORE_CONFIG.years.map((y) => (
                       <option key={y} value={y}>{y}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">ภาควิชา / สาขา *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.majorLabel}</label>
                   <select
                     required
                     value={formData.major}
                     onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
                   >
-                    <option value="">-- เลือกสาขาวิชา --</option>
+                    <option value="">{t.majorPlaceholder}</option>
                     {isGraduate ? (
                       (STORE_CONFIG.graduateMajors || []).map((m) => (
                         <option key={m} value={m}>{m}</option>
@@ -299,12 +302,12 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                       ))
                     ) : (
                       <>
-                        <optgroup label="ระดับปริญญาตรี (Undergraduate)">
+                        <optgroup label={t.undergradGroup}>
                           {(STORE_CONFIG.undergraduateMajors || []).map((m) => (
                             <option key={m} value={m}>{m}</option>
                           ))}
                         </optgroup>
-                        <optgroup label="ระดับบัณฑิตศึกษา (Graduate)">
+                        <optgroup label={t.gradGroup}>
                           {(STORE_CONFIG.graduateMajors || []).map((m) => (
                             <option key={m} value={m}>{m}</option>
                           ))}
@@ -317,25 +320,25 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">เบอร์โทรศัพท์ *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.phoneLabel}</label>
                   <input
                     type="tel"
                     required
-                    placeholder="0812345678"
+                    placeholder={t.phonePlaceholder}
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:bg-white"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">LINE ID หรือ อีเมล *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.contactLabel}</label>
                   <input
                     type="text"
                     required
-                    placeholder="line: arch_student"
+                    placeholder={t.contactPlaceholder}
                     value={formData.contact}
                     onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
                   />
                 </div>
               </div>
@@ -344,10 +347,10 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Delivery */}
             <div className="space-y-3">
               <h5 className="text-xs font-mono font-bold text-zinc-900 uppercase pb-1 border-b border-zinc-200">
-                วิธีการรับสินค้า
+                {t.deliveryTitle}
               </h5>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50">
+                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50 hover:bg-zinc-100 transition-colors">
                   <input
                     type="radio"
                     name="delivery"
@@ -356,12 +359,12 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     className="mt-1"
                   />
                   <div>
-                    <div className="font-bold text-xs">รับที่ห้องสโมสรนักศึกษา</div>
-                    <div className="text-[11px] text-zinc-500">ฟรี ตึกสถาปัตย์ ชั้น 1</div>
+                    <div className="font-bold text-xs">{t.pickupOption}</div>
+                    <div className="text-[11px] text-zinc-500">{t.pickupDesc}</div>
                   </div>
                 </label>
 
-                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50">
+                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50 hover:bg-zinc-100 transition-colors">
                   <input
                     type="radio"
                     name="delivery"
@@ -370,22 +373,22 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     className="mt-1"
                   />
                   <div>
-                    <div className="font-bold text-xs">จัดส่งพัสดุถึงที่อยู่</div>
-                    <div className="text-[11px] text-zinc-500">+{formatCurrency(STORE_CONFIG.faculty.shippingFee)} ค่าบริการขนส่ง</div>
+                    <div className="font-bold text-xs">{t.shippingOption}</div>
+                    <div className="text-[11px] text-zinc-500">+{formatCurrency(STORE_CONFIG.faculty.shippingFee)} {t.shippingDesc}</div>
                   </div>
                 </label>
               </div>
 
               {deliveryMethod === 'shipping' && (
                 <div className="pt-2">
-                  <label className="block text-xs font-medium text-zinc-700 mb-1">ที่อยู่สำหรับจัดส่งพัสดุ *</label>
+                  <label className="block text-xs font-medium text-zinc-700 mb-1">{t.addressLabel}</label>
                   <textarea
                     rows="2"
                     required
-                    placeholder="บ้านเลขที่ ซอย ถนน ตำบล อำเภอ จังหวัด รหัสไปรษณีย์"
+                    placeholder={t.addressPlaceholder}
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs"
+                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
                   ></textarea>
                 </div>
               )}
@@ -394,8 +397,8 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Payment & Slip */}
             <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span className="text-xs font-mono font-bold">💳 ข้อมูลการชำระเงิน</span>
-                <span className="text-xs font-mono font-bold text-amber-400">ยอดชำระ: {formatCurrency(grandTotal)}</span>
+                <span className="text-xs font-mono font-bold">{t.paymentTitle}</span>
+                <span className="text-xs font-mono font-bold text-amber-400">{t.totalPayLabel} {formatCurrency(grandTotal)}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
@@ -406,34 +409,34 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     className="w-36 h-36 object-contain rounded-lg"
                     onError={(e) => { e.target.src = getPromptPayQRUrl(grandTotal); }}
                   />
-                  <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">สแกน QR Code ชำระเงิน</span>
+                  <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">{t.scanQRLabel}</span>
                 </div>
                 <div className="sm:col-span-7 text-xs font-mono space-y-2">
                   <div className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 space-y-1">
-                    <span className="text-zinc-400 text-[10.5px]">ธนาคาร:</span>
+                    <span className="text-zinc-400 text-[10.5px]">{t.bankLabel}</span>
                     <div className="font-bold text-emerald-400 text-xs">{STORE_CONFIG.payment.bankName}</div>
-                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">เลขที่บัญชี:</div>
+                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNoLabel}</div>
                     <div className="font-bold text-white text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
-                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">ชื่อบัญชี:</div>
+                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNameLabel}</div>
                     <div className="font-bold text-amber-300 text-xs">{STORE_CONFIG.payment.bankAccountName}</div>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">แนบภาพสลิปโอนเงิน *</label>
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">{t.attachSlipLabel}</label>
                 {!slipPreview ? (
-                  <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-6 block text-center cursor-pointer">
+                  <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-6 block text-center cursor-pointer transition-colors">
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files[0])} className="hidden" />
-                    <span className="text-xs text-zinc-200">คลิกเพื่อเลือกไฟล์รูปสลิป</span>
-                    <span className="text-[10px] text-zinc-400 block mt-1 font-mono">JPG, PNG, WEBP (ไม่เกิน 5MB)</span>
+                    <span className="text-xs text-zinc-200 font-medium">{t.selectSlipFile}</span>
+                    <span className="text-[10px] text-zinc-400 block mt-1 font-mono">{t.slipHint}</span>
                   </label>
                 ) : (
-                  <div className="bg-zinc-800 p-3 rounded-xl flex items-center justify-between">
+                  <div className="bg-zinc-800 p-3 rounded-xl flex items-center justify-between border border-zinc-700">
                     <img src={slipPreview} alt="Slip" className="w-12 h-12 object-cover rounded-lg" />
                     <span className="text-xs text-white truncate max-w-[150px]">{slipFile?.name}</span>
-                    <button type="button" onClick={() => { setSlipFile(null); setSlipPreview(null); }} className="text-xs text-rose-400">
-                      เปลี่ยนรูป
+                    <button type="button" onClick={() => { setSlipFile(null); setSlipPreview(null); }} className="text-xs text-rose-400 font-bold hover:underline">
+                      {t.changeSlip}
                     </button>
                   </div>
                 )}
@@ -443,8 +446,8 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Total & Submit */}
             <div className="pt-4 border-t border-zinc-200 space-y-2">
               <div className="flex justify-between text-base font-bold font-mono">
-                <span>ยอดชำระสุทธิ:</span>
-                <span className="text-xl">{formatCurrency(grandTotal)}</span>
+                <span>{t.grandTotalLabel}</span>
+                <span className="text-xl text-emerald-600">{formatCurrency(grandTotal)}</span>
               </div>
 
               <button
@@ -452,7 +455,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 disabled={isSubmitting}
                 className="w-full py-3.5 bg-zinc-900 hover:bg-black text-white font-bold text-sm rounded-xl shadow-lg transition-all disabled:opacity-50"
               >
-                {isSubmitting ? 'กำลังส่งข้อมูล...' : 'ยืนยันการสั่งจองและส่งสลิป (Submit Order)'}
+                {isSubmitting ? t.submittingBtn : t.submitOrderBtn}
               </button>
             </div>
 
