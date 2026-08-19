@@ -1,0 +1,109 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-thai: 'Prompt', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-display: 'Space Grotesk', var(--font-thai);
+}
+
+body {
+  font-family: var(--font-thai);
+  background-color: #fafbfc;
+  color: #0d0e12;
+  overflow-x: hidden;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Blueprint Grid Background */
+.bg-blueprint {
+  background-image: 
+    linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.arch-card-interactive {
+  border: 1px solid #e2e5eb;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.arch-card-interactive:hover {
+  transform: translateY(-4px);
+  border-color: #0d0e12;
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.12);
+}
+
+/* Live Pulse Animation */
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.live-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background-color: #10b981;
+  border-radius: 50%;
+  animation: pulse-dot 2s infinite;
+}
+
+/* Print Stylesheet (Single-Page Optimized) */
+@media print {
+  @page {
+    margin: 6mm !important;
+    size: A4 portrait;
+  }
+  
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  #printable-receipt, #printable-receipt * {
+    visibility: visible !important;
+  }
+
+  #printable-receipt {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: 100% !important;
+    max-width: 500px !important;
+    box-shadow: none !important;
+    border: 1px solid #111111 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    padding: 14px 18px !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
