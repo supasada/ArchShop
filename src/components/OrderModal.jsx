@@ -14,6 +14,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
   const [color, setColor] = useState(colors[0] || 'Deep Black');
   const [quantity, setQuantity] = useState(1);
   const [deliveryMethod, setDeliveryMethod] = useState('pickup');
+  const [paymentMethod, setPaymentMethod] = useState('transfer'); // 'transfer' | 'cash'
   const [showBack, setShowBack] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -104,11 +105,16 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
     if (deliveryMethod === 'shipping' && (!formData.address || formData.address.length < 8)) {
       return alert(t.errAddress);
     }
-    if (!slipFile) return alert(t.errSlip);
+    if (paymentMethod === 'transfer' && !slipFile) {
+      return alert(t.errSlip);
+    }
 
     setIsSubmitting(true);
     try {
-      const slipUrl = await api.uploadSlip(slipFile, formData.studentId);
+      let slipUrl = null;
+      if (paymentMethod === 'transfer' && slipFile) {
+        slipUrl = await api.uploadSlip(slipFile, formData.studentId);
+      }
 
       const orderPayload = {
         product_id: product.id,
@@ -122,6 +128,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
         size,
         quantity,
         total_price: grandTotal,
+        payment_method: paymentMethod,
         payment_slip_url: slipUrl,
         delivery_method: deliveryMethod,
         shipping_address: deliveryMethod === 'shipping' ? formData.address : null,
@@ -434,46 +441,100 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 <span className="text-xs font-mono font-bold text-amber-400">{t.totalPayLabel} {formatCurrency(grandTotal)}</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <div className="sm:col-span-5 flex flex-col items-center justify-center p-3 bg-white rounded-xl shadow-xs">
-                  <img 
-                    src="/assets/payment_qr.jpg" 
-                    alt="Payment QR Code" 
-                    className="w-32 h-32 sm:w-36 sm:h-36 object-contain rounded-lg"
-                    onError={(e) => { e.target.src = getPromptPayQRUrl(grandTotal); }}
-                  />
-                  <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">{t.scanQRLabel}</span>
-                </div>
-                <div className="sm:col-span-7 text-xs font-mono space-y-2">
-                  <div className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 space-y-1">
-                    <span className="text-zinc-400 text-[10.5px]">{t.bankLabel}</span>
-                    <div className="font-bold text-emerald-400 text-xs">{STORE_CONFIG.payment.bankName}</div>
-                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNoLabel}</div>
-                    <div className="font-bold text-white text-sm sm:text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
-                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNameLabel}</div>
-                    <div className="font-bold text-amber-300 text-xs truncate">{STORE_CONFIG.payment.bankAccountName}</div>
-                  </div>
+              {/* Payment Method Selector */}
+              <div>
+                <label className="text-xs font-mono font-bold text-zinc-300 block mb-2">{t.paymentMethodLabel || 'เลือกช่องทางการชำระเงิน:'}</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('transfer')}
+                    className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                      paymentMethod === 'transfer'
+                        ? 'bg-zinc-800 border-amber-400 text-white shadow-xs'
+                        : 'bg-zinc-800/40 border-zinc-700 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">💳</span>
+                      <span>{t.payMethodTransfer || '💳 โอนเงิน / สแกน QR (PromptPay / Transfer)'}</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('cash')}
+                    className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
+                      paymentMethod === 'cash'
+                        ? 'bg-zinc-800 border-amber-400 text-white shadow-xs'
+                        : 'bg-zinc-800/40 border-zinc-700 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">💵</span>
+                      <span>{t.payMethodCash || '💵 ชำระด้วยเงินสด (Cash on Pick-up)'}</span>
+                    </div>
+                  </button>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1.5">{t.attachSlipLabel}</label>
-                {!slipPreview ? (
-                  <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-5 sm:p-6 block text-center cursor-pointer transition-colors">
-                    <input type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files[0])} className="hidden" />
-                    <span className="text-xs text-zinc-200 font-medium">{t.selectSlipFile}</span>
-                    <span className="text-[10px] text-zinc-400 block mt-1 font-mono">{t.slipHint}</span>
-                  </label>
-                ) : (
-                  <div className="bg-zinc-800 p-3 rounded-xl flex items-center justify-between border border-zinc-700">
-                    <img src={slipPreview} alt="Slip" className="w-12 h-12 object-cover rounded-lg" />
-                    <span className="text-xs text-white truncate max-w-[150px]">{slipFile?.name}</span>
-                    <button type="button" onClick={() => { setSlipFile(null); setSlipPreview(null); }} className="text-xs text-rose-400 font-bold hover:underline">
-                      {t.changeSlip}
-                    </button>
+              {paymentMethod === 'transfer' ? (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                    <div className="sm:col-span-5 flex flex-col items-center justify-center p-3 bg-white rounded-xl shadow-xs">
+                      <img 
+                        src="/assets/payment_qr.jpg" 
+                        alt="Payment QR Code" 
+                        className="w-32 h-32 sm:w-36 sm:h-36 object-contain rounded-lg"
+                        onError={(e) => { e.target.src = getPromptPayQRUrl(grandTotal); }}
+                      />
+                      <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">{t.scanQRLabel}</span>
+                    </div>
+                    <div className="sm:col-span-7 text-xs font-mono space-y-2">
+                      <div className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 space-y-1">
+                        <span className="text-zinc-400 text-[10.5px]">{t.bankLabel}</span>
+                        <div className="font-bold text-emerald-400 text-xs">{STORE_CONFIG.payment.bankName}</div>
+                        <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNoLabel}</div>
+                        <div className="font-bold text-white text-sm sm:text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
+                        <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNameLabel}</div>
+                        <div className="font-bold text-amber-300 text-xs truncate">{STORE_CONFIG.payment.bankAccountName}</div>
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1.5">{t.attachSlipLabel}</label>
+                    {!slipPreview ? (
+                      <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-5 sm:p-6 block text-center cursor-pointer transition-colors">
+                        <input type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files[0])} className="hidden" />
+                        <span className="text-xs text-zinc-200 font-medium">{t.selectSlipFile}</span>
+                        <span className="text-[10px] text-zinc-400 block mt-1 font-mono">{t.slipHint}</span>
+                      </label>
+                    ) : (
+                      <div className="bg-zinc-800 p-3 rounded-xl flex items-center justify-between border border-zinc-700">
+                        <img src={slipPreview} alt="Slip" className="w-12 h-12 object-cover rounded-lg" />
+                        <span className="text-xs text-white truncate max-w-[150px]">{slipFile?.name}</span>
+                        <button type="button" onClick={() => { setSlipFile(null); setSlipPreview(null); }} className="text-xs text-rose-400 font-bold hover:underline">
+                          {t.changeSlip}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="p-4 bg-zinc-800/90 rounded-xl border border-amber-400/40 space-y-2.5">
+                  <div className="flex items-center gap-2 text-amber-400 font-bold text-xs font-mono">
+                    <span className="text-base">💵</span>
+                    <span>{t.cashNoticeTitle || '💵 ชำระเงินสดตอนมารับเสื้อ'}</span>
+                  </div>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    {t.cashNoticeDesc || 'กรุณาเตรียมเงินสดตามยอดชำระ และนำมาชำระ ณ ห้องสโมสรนักศึกษาเมื่อถึงกำหนดวันรับเสื้อ (ไม่ต้องแนบสลิปโอนเงิน)'}
+                  </p>
+                  <div className="pt-2 border-t border-zinc-700 flex justify-between items-center text-xs font-mono">
+                    <span className="text-zinc-400">{t.cashAmountDue || 'ยอดเงินสดที่ต้องชำระ:'}</span>
+                    <span className="text-emerald-400 font-bold text-sm">{formatCurrency(grandTotal)}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Total & Submit */}

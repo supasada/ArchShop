@@ -23,6 +23,7 @@ export function exportOrdersToCSV(orders, products = []) {
     'ยอดเงินรวม (Total Price THB)',
     'วิธีรับสินค้า (Delivery Method)',
     'ที่อยู่จัดส่ง (Shipping Address)',
+    'ช่องทางการชำระเงิน (Payment Method)',
     'สถานะการชำระเงิน (Payment Status)',
     'ลิงก์สลิปโอนเงิน (Slip URL)',
     'หมายเหตุ (Notes)'
@@ -62,6 +63,7 @@ export function exportOrdersToCSV(orders, products = []) {
 
   const rows = orders.map((o) => {
     const prod = o.products || products.find(p => p.id === o.product_id) || {};
+    const payMethodText = o.payment_method === 'cash' ? 'เงินสด (Cash)' : 'โอนเงิน/QR (Transfer)';
     return [
       escapeExcelText(o.id),
       escapeExcelText(formatDateTime(o.created_at)),
@@ -78,6 +80,7 @@ export function exportOrdersToCSV(orders, products = []) {
       Number(o.total_price) || 0,
       escapeCSV(o.delivery_method === 'shipping' ? 'จัดส่งพัสดุ' : 'รับที่ห้องสโมสร'),
       escapeCSV(o.shipping_address || '-'),
+      escapeCSV(payMethodText),
       escapeCSV(o.payment_status),
       escapeCSV(o.payment_slip_url || '-'),
       escapeCSV(o.notes || '-')

@@ -695,7 +695,7 @@ export default function AdminView({ onBackToStore }) {
                             {formatCurrency(order.total_price)}
                           </td>
 
-                          {/* 5. Slip Thumbnail */}
+                          {/* 5. Slip Thumbnail / Payment Mode */}
                           <td className="py-3.5 px-4 text-center">
                             {order.payment_slip_url ? (
                               <button
@@ -707,6 +707,11 @@ export default function AdminView({ onBackToStore }) {
                                 <img src={order.payment_slip_url} alt="Slip" className="w-9 h-9 object-cover rounded shadow-xs" />
                                 <span className="text-[9px] text-zinc-500 mt-0.5">ตรวจสลิป</span>
                               </button>
+                            ) : order.payment_method === 'cash' ? (
+                              <div className="inline-flex flex-col items-center px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg" title="ชำระเงินสดตอนรับเสื้อ">
+                                <span className="text-sm">💵</span>
+                                <span className="text-[9px] font-bold text-amber-800 font-mono">เงินสด</span>
+                              </div>
                             ) : (
                               <span className="text-zinc-400 font-mono text-[11px]">- ไม่มีสลิป -</span>
                             )}

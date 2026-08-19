@@ -114,17 +114,29 @@ export default function ReceiptModal({ order, product, onClose }) {
           </table>
 
           {/* Delivery & Status Box */}
-          <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 space-y-0.5 text-[10px]">
+          <div className="p-2 bg-zinc-50 rounded-lg border border-zinc-200 space-y-1 text-[10px]">
             <div className="flex justify-between items-center">
               <span className="text-zinc-500">วิธีรับสินค้า:</span>
               <span className="font-bold text-zinc-900">
                 {order.delivery_method === 'shipping' ? `🚚 พัสดุ (${order.shipping_address})` : `📍 ${STORE_CONFIG.faculty.pickupLocation}`}
               </span>
             </div>
-            <div className="flex justify-between items-center pt-1 border-t">
+            <div className="flex justify-between items-center pt-1 border-t border-zinc-200">
+              <span className="text-zinc-500">ช่องทางชำระเงิน:</span>
+              <span className="font-bold text-zinc-900">
+                {order.payment_method === 'cash' ? '💵 เงินสดตอนรับเสื้อ (Cash)' : '💳 โอนเงิน / QR Code (Transfer)'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center pt-1 border-t border-zinc-200">
               <span className="text-zinc-500">สถานะชำระเงิน:</span>
-              <span className="font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[9px]">
-                {order.payment_status === 'confirmed' ? '✓ ชำระเงินเรียบร้อย (PAID)' : '⏳ รอตรวจสอบสลิป'}
+              <span className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
+                order.payment_status === 'confirmed' 
+                  ? 'bg-emerald-100 text-emerald-800' 
+                  : (order.payment_method === 'cash' ? 'bg-amber-100 text-amber-800' : 'bg-amber-100 text-amber-800')
+              }`}>
+                {order.payment_status === 'confirmed' 
+                  ? '✓ ชำระเงินเรียบร้อย (PAID)' 
+                  : (order.payment_method === 'cash' ? '⏳ รอชำระเงินสดตอนรับเสื้อ' : '⏳ รอตรวจสอบสลิป')}
               </span>
             </div>
           </div>

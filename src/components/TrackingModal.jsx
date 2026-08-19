@@ -141,7 +141,13 @@ export default function TrackingModal({ isOpen, onClose }) {
                           isRejected ? 'bg-rose-100 text-rose-800 border border-rose-200' : 
                           'bg-amber-100 text-amber-800 border border-amber-200'
                         }`}>
-                          <span>{isConfirmed ? t.statusConfirmed : isRejected ? t.statusRejected : t.statusPending}</span>
+                          <span>
+                            {isConfirmed 
+                              ? t.statusConfirmed 
+                              : isRejected 
+                                ? t.statusRejected 
+                                : (order.payment_method === 'cash' ? '💵 รอชำระเงินสดตอนรับเสื้อ' : t.statusPending)}
+                          </span>
                         </span>
                       </div>
                     </div>
@@ -178,6 +184,13 @@ export default function TrackingModal({ isOpen, onClose }) {
 
                     {/* Delivery & Status Details */}
                     <div className="text-[11px] text-zinc-600 space-y-1 pt-1 border-t">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-zinc-500">การชำระเงิน:</span>
+                        <span className="font-bold text-zinc-800">
+                          {order.payment_method === 'cash' ? '💵 ชำระด้วยเงินสด (Cash on Pick-up)' : '💳 โอนเงิน / QR Code'}
+                        </span>
+                      </div>
+
                       <div className="flex items-center gap-1.5">
                         <span className="text-zinc-500">{t.deliveryMethodLabel}</span>
                         <span className="font-medium text-zinc-800">
