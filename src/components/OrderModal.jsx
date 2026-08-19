@@ -53,6 +53,13 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
     formData.yearOfStudy.startsWith('ปี') && !formData.yearOfStudy.includes('โท')
   );
 
+  const handleDeliveryChange = (method) => {
+    setDeliveryMethod(method);
+    if (method === 'shipping') {
+      setPaymentMethod('transfer');
+    }
+  };
+
   const handleYearChange = (year) => {
     const nextIsGraduate = year.includes('บัณฑิต') || year.includes('โท') || year.includes('เอก') || year.includes('Graduate');
     const nextIsUndergrad = year.startsWith('ปี') && !year.includes('โท');
@@ -105,14 +112,17 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
     if (deliveryMethod === 'shipping' && (!formData.address || formData.address.length < 8)) {
       return alert(t.errAddress);
     }
-    if (paymentMethod === 'transfer' && !slipFile) {
+
+    const effectivePaymentMethod = deliveryMethod === 'shipping' ? 'transfer' : paymentMethod;
+
+    if (effectivePaymentMethod === 'transfer' && !slipFile) {
       return alert(t.errSlip);
     }
 
     setIsSubmitting(true);
     try {
       let slipUrl = null;
-      if (paymentMethod === 'transfer' && slipFile) {
+      if (effectivePaymentMethod === 'transfer' && slipFile) {
         slipUrl = await api.uploadSlip(slipFile, formData.studentId);
       }
 
@@ -128,7 +138,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
         size,
         quantity,
         total_price: grandTotal,
-        payment_method: paymentMethod,
+        payment_method: effectivePaymentMethod,
         payment_slip_url: slipUrl,
         delivery_method: deliveryMethod,
         shipping_address: deliveryMethod === 'shipping' ? formData.address : null,
@@ -378,7 +388,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     name="delivery"
                     value="pickup"
                     checked={deliveryMethod === 'pickup'}
-                    onChange={() => setDeliveryMethod('pickup')}
+                    onChange={() => handleDeliveryChange('pickup')}
                     className="mt-0.5 accent-black"
                   />
                   <div>
@@ -396,7 +406,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     name="delivery"
                     value="shipping"
                     checked={deliveryMethod === 'shipping'}
-                    onChange={() => setDeliveryMethod('shipping')}
+                    onChange={() => handleDeliveryChange('shipping')}
                     className="mt-0.5 accent-black"
                   />
                   <div>
@@ -441,6 +451,14 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 <span className="text-xs font-mono font-bold text-amber-400">{t.totalPayLabel} {formatCurrency(grandTotal)}</span>
               </div>
 
+              {/* Delivery Shipping Alert */}
+              {deliveryMethod === 'shipping' && (
+                <div className="p-2.5 bg-zinc-800/90 border border-amber-400/50 rounded-xl text-[11px] text-amber-300 font-mono flex items-center gap-2 shadow-xs">
+                  <span className="text-sm">🚚</span>
+                  <span>{t.cashOnlyPickupNote || '🔒 การจัดส่งถึงบ้านต้องชำระเงินผ่าน QR Code / โอนเงินเท่านั้น'}</span>
+                </div>
+              )}
+
               {/* Payment Method Selector */}
               <div>
                 <label className="text-xs font-mono font-bold text-zinc-300 block mb-2">{t.paymentMethodLabel || 'เลือกช่องทางการชำระเงิน:'}</label>
@@ -462,16 +480,27 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
                   <button
                     type="button"
+                    disabled={deliveryMethod === 'shipping'}
                     onClick={() => setPaymentMethod('cash')}
                     className={`p-3 rounded-xl border text-left text-xs font-bold transition-all ${
-                      paymentMethod === 'cash'
+                      deliveryMethod === 'shipping'
+                        ? 'opacity-40 cursor-not-allowed bg-zinc-800/20 border-zinc-800 text-zinc-500'
+                        : paymentMethod === 'cash'
                         ? 'bg-zinc-800 border-amber-400 text-white shadow-xs'
                         : 'bg-zinc-800/40 border-zinc-700 text-zinc-400 hover:text-white'
                     }`}
+                    title={deliveryMethod === 'shipping' ? (t.cashOnlyPickupNote || 'การจัดส่งถึงบ้านต้องชำระผ่าน QR Code') : ''}
                   >
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm">💵</span>
-                      <span>{t.payMethodCash || '💵 ชำระด้วยเงินสด (Cash on Pick-up)'}</span>
+                    <div className="flex items-center justify-between gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">💵</span>
+                        <span>{t.payMethodCash || '💵 ชำระด้วยเงินสด (Cash on Pick-up)'}</span>
+                      </div>
+                      {deliveryMethod === 'shipping' && (
+                        <span className="text-[9.5px] font-mono text-zinc-400 font-normal">
+                          {t.pickupOnlyTag || '(เฉพาะรับที่สโมฯ)'}
+                        </span>
+                      )}
                     </div>
                   </button>
                 </div>
