@@ -101,8 +101,24 @@ export const translations = {
     slipProofTitle: 'หลักฐานสลิปโอนเงิน',
     closeBtn: 'ปิด',
 
+    // Store View & Faculty
+    availableDesigns: 'AVAILABLE DESIGNS',
+    catalogHeaderTitle: 'รายการเสื้อเปิดรับจอง (Pre-Order Products)',
+    viewSizeChartBtnText: '📏 ตารางขนาดไซส์ (Size Chart)',
+    pickupCardTitle: '📍 สถานที่รับเสื้อด้วยตนเอง',
+    pickupLocationText: 'ห้องสโมสรนักศึกษา ชั้น 1 ตึกสถาปัตยกรรมศาสตร์ (ตรงข้ามห้องLA5001)',
+    pickupHoursText: 'ติดตามวันที่ประกาศรับอีกที',
+    bankCardTitle: '💳 บัญชีทางการสโมสรนักศึกษา',
+    inquiryCardTitle: '💬 ติดต่อสอบถาม',
+    inquiryCardDesc: 'หากมีข้อสงสัยเกี่ยวกับสินค้าหรือคำสั่งซื้อ สามารถทักสอบถามทีมงานสโมสรนักศึกษาได้โดยตรง',
+    openInstagramBtn: '📸 Instagram: @smoarchcmu',
+
     // Size Chart Modal
     sizeChartTitle: 'ตารางเทียบไซส์เสื้อยืด (T-SHIRT UNISEX SIZE CHART)',
+    sizeChartTableTab: '📊 ตารางขนาด (Table)',
+    sizeChartGraphicTab: '🖼️ แผนผังไซส์ (Graphic)',
+    sizeChartTipTitle: 'คำแนะนำในการเลือกไซส์:',
+    sizeChartTipDesc: 'ทรงเสื้อเป็นแบบ Unisex สำหรับผู้ชายและผู้หญิง หากต้องการสวมใส่แบบ Oversized แนะนำให้เผื่อไซส์ +1 ขนาดจากปกติ',
     sizeCol: 'ไซส์ (Size)',
     chestCol: 'รอบอก',
     lengthCol: 'ความยาวเสื้อ',
@@ -225,8 +241,24 @@ export const translations = {
     slipProofTitle: 'Payment Slip Proof',
     closeBtn: 'Close',
 
+    // Store View & Faculty
+    availableDesigns: 'AVAILABLE DESIGNS',
+    catalogHeaderTitle: 'Official Pre-Order T-Shirt Collection',
+    viewSizeChartBtnText: '📏 View Size Chart',
+    pickupCardTitle: '📍 Self Pick-up Location',
+    pickupLocationText: 'Faculty Student Union Office, 1st Floor (Opposite Room LA5001)',
+    pickupHoursText: 'Pick-up schedule will be announced soon',
+    bankCardTitle: '💳 Official Student Union Bank Account',
+    inquiryCardTitle: '💬 Inquiries & Contact',
+    inquiryCardDesc: 'If you have any questions regarding your pre-order or sizing, please message the Student Union committee directly.',
+    openInstagramBtn: '📸 Instagram: @smoarchcmu',
+
     // Size Chart Modal
     sizeChartTitle: 'T-Shirt Unisex Size Measurement Chart (Inches)',
+    sizeChartTableTab: '📊 Size Table',
+    sizeChartGraphicTab: '🖼️ Visual Chart',
+    sizeChartTipTitle: 'Sizing Recommendation:',
+    sizeChartTipDesc: 'Unisex fit for all. If you prefer a loose oversized streetwear look, we recommend choosing +1 size up.',
     sizeCol: 'Size',
     chestCol: 'Chest',
     lengthCol: 'Length',
@@ -349,8 +381,24 @@ export const translations = {
     slipProofTitle: '转账凭证预览',
     closeBtn: '关闭',
 
+    // Store View & Faculty
+    availableDesigns: 'AVAILABLE DESIGNS',
+    catalogHeaderTitle: '建筑学院官方预购短袖款式 (Pre-Order)',
+    viewSizeChartBtnText: '📏 查看尺码对照表 (Size Chart)',
+    pickupCardTitle: '📍 现场自取地点',
+    pickupLocationText: '建筑学院大楼 1 楼学生会办公室（LA5001 教室正对面）',
+    pickupHoursText: '领取时间以官方后续公告为准',
+    bankCardTitle: '💳 学生会官方银行账户',
+    inquiryCardTitle: '💬 咨询与联系',
+    inquiryCardDesc: '如有关于商品尺码、款式或预定订单的任何疑问，欢迎直接联系学生会工作人员。',
+    openInstagramBtn: '📸 Instagram: @smoarchcmu',
+
     // Size Chart Modal
     sizeChartTitle: 'T-Shirt Unisex 衣服尺码详细对照表 (SIZE CHART)',
+    sizeChartTableTab: '📊 尺码对照表',
+    sizeChartGraphicTab: '🖼️ 尺码示意图',
+    sizeChartTipTitle: '选码建议：',
+    sizeChartTipDesc: '衣服为男女同款 Unisex 版型。如需宽松 Oversized 街头风格，建议选大一码 (+1)。',
     sizeCol: '尺码 (Size)',
     chestCol: '胸围',
     lengthCol: '衣长',

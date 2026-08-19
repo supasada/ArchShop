@@ -37,7 +37,7 @@ export default function SizeChartModal({ isOpen, onClose }) {
                 viewMode === 'table' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <span>📊 ตารางขนาด (Table)</span>
+              <span>{t.sizeChartTableTab || '📊 ตารางขนาด (Table)'}</span>
             </button>
             <button
               type="button"
@@ -46,7 +46,7 @@ export default function SizeChartModal({ isOpen, onClose }) {
                 viewMode === 'graphic' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
-              <span>🖼️ แผนผังไซส์ (Graphic)</span>
+              <span>{t.sizeChartGraphicTab || '🖼️ แผนผังไซส์ (Graphic)'}</span>
             </button>
           </div>
 
@@ -108,7 +108,7 @@ export default function SizeChartModal({ isOpen, onClose }) {
           <div className="p-3.5 bg-zinc-50 rounded-xl sm:rounded-2xl border border-zinc-200 text-zinc-700 text-xs flex items-start gap-2.5">
             <span className="text-base">💡</span>
             <div className="text-[11.5px] leading-relaxed">
-              <strong>คำแนะนำในการเลือกไซส์:</strong> ทรงเสื้อเป็นแบบ Unisex สำหรับผู้ชายและผู้หญิง หากต้องการสวมใส่แบบ Oversized แนะนำให้เผื่อไซส์ +1 ขนาดจากปกติ
+              <strong>{t.sizeChartTipTitle || 'คำแนะนำในการเลือกไซส์:'}</strong> {t.sizeChartTipDesc || 'ทรงเสื้อเป็นแบบ Unisex สำหรับผู้ชายและผู้หญิง หากต้องการสวมใส่แบบ Oversized แนะนำให้เผื่อไซส์ +1 ขนาดจากปกติ'}
             </div>
           </div>
 
