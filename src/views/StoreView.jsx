@@ -75,21 +75,17 @@ export default function StoreView({ products, loading, onSelectProduct, onOpenSi
                 </p>
               </div>
 
-              <div className="pt-2 border-t border-zinc-100 space-y-2">
+              <div className="pt-2 border-t border-zinc-100">
                 <a
                   href="https://www.instagram.com/smoarchcmu/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 w-full py-2.5 px-3.5 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
+                  className="inline-flex items-center justify-center gap-2 w-full py-3 px-4 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-xs active:scale-[0.98] transition-all"
                   title="เปิด Instagram @smoarchcmu"
                 >
                   <span>📸 Instagram: @smoarchcmu</span>
                   <span className="text-[11px]">↗</span>
                 </a>
-                <div className="text-[11px] text-zinc-500 font-mono flex items-center justify-between px-1">
-                  <span>โทรศัพท์:</span>
-                  <span className="font-bold text-zinc-700">{STORE_CONFIG.faculty.phone}</span>
-                </div>
               </div>
             </div>
           </div>
