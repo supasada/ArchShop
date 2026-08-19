@@ -13,11 +13,26 @@
   --font-display: 'Space Grotesk', var(--font-thai);
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+}
+
 body {
   font-family: var(--font-thai);
   background-color: #fafbfc;
   color: #0d0e12;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent auto zoom on inputs on iOS */
+@media screen and (max-width: 768px) {
+  input, select, textarea {
+    font-size: 14px !important;
+  }
 }
 
 .font-display {

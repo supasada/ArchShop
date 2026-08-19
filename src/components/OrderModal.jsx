@@ -139,26 +139,30 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6">
+      <div className="bg-white w-full max-w-4xl rounded-2xl sm:rounded-3xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
         
         {/* Header */}
-        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 shrink-0">
+        <div className="px-4 py-3.5 sm:px-6 sm:py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 shrink-0">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-            <h3 className="font-bold text-zinc-900 text-base">{t.orderFormTitle}</h3>
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <h3 className="font-bold text-zinc-900 text-sm sm:text-base">{t.orderFormTitle}</h3>
           </div>
-          <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg bg-zinc-200/80 hover:bg-zinc-300 flex items-center justify-center text-zinc-700">
+          <button 
+            type="button" 
+            onClick={onClose} 
+            className="w-8 h-8 rounded-xl bg-zinc-200/80 hover:bg-zinc-300 flex items-center justify-center text-zinc-700 text-xs font-bold transition-all"
+          >
             ✕
           </button>
         </div>
 
         {/* Content */}
-        <div className="overflow-y-auto p-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="overflow-y-auto p-4 sm:p-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
           
           {/* Left Summary */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="relative aspect-square bg-zinc-100 rounded-xl overflow-hidden border border-zinc-200">
+          <div className="lg:col-span-5 space-y-3.5 sm:space-y-4">
+            <div className="relative aspect-[4/3] sm:aspect-square bg-zinc-100 rounded-xl sm:rounded-2xl overflow-hidden border border-zinc-200">
               <img
                 src={showBack ? (product.image_back_url || product.image_front_url) : product.image_front_url}
                 alt="Shirt Preview"
@@ -169,7 +173,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 <button
                   type="button"
                   onClick={() => setShowBack(!showBack)}
-                  className="absolute bottom-3 right-3 px-3 py-1.5 bg-black/80 text-white text-xs font-mono rounded-lg shadow-sm"
+                  className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 px-2.5 py-1 sm:px-3 sm:py-1.5 bg-black/80 hover:bg-black text-white text-[11px] sm:text-xs font-mono rounded-lg shadow-sm active:scale-95 transition-all"
                 >
                   {showBack ? t.viewFront : t.viewBack}
                 </button>
@@ -177,34 +181,34 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             </div>
 
             <div>
-              <h4 className="font-bold text-zinc-900 text-base">{product.name}</h4>
-              <div className="text-xl font-bold font-mono text-zinc-900 mt-1">{formatCurrency(product.price)}</div>
-              <p className="text-xs text-zinc-600 mt-2 leading-relaxed">{product.description}</p>
+              <h4 className="font-bold text-zinc-900 text-sm sm:text-base leading-snug">{product.name}</h4>
+              <div className="text-lg sm:text-xl font-bold font-mono text-zinc-900 mt-1">{formatCurrency(product.price)}</div>
+              <p className="text-xs text-zinc-600 mt-1.5 leading-relaxed line-clamp-3 sm:line-clamp-none">{product.description}</p>
             </div>
 
-            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between">
-              <span className="text-xs font-mono text-zinc-600">{t.unsureSize}</span>
-              <button type="button" onClick={onOpenSizeChart} className="text-xs font-bold text-zinc-900 underline hover:text-amber-600">
+            <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between gap-2">
+              <span className="text-xs font-mono text-zinc-600 truncate">{t.unsureSize}</span>
+              <button type="button" onClick={onOpenSizeChart} className="text-xs font-bold text-zinc-900 underline hover:text-amber-600 shrink-0">
                 {t.viewSizeChartBtn}
               </button>
             </div>
           </div>
 
           {/* Right Form */}
-          <form onSubmit={handleSubmit} className="lg:col-span-7 space-y-6">
+          <form onSubmit={handleSubmit} className="lg:col-span-7 space-y-5 sm:space-y-6">
             
             {/* Options */}
-            <div className="space-y-4 p-4 bg-zinc-50 rounded-xl border border-zinc-200">
+            <div className="space-y-3.5 p-3.5 sm:p-4 bg-zinc-50 rounded-xl sm:rounded-2xl border border-zinc-200">
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step1Size}</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">{t.step1Size}</label>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {sizes.map((s) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => setSize(s)}
-                      className={`px-4 py-2 rounded-lg border font-mono text-sm font-medium transition-all ${
-                        size === s ? 'border-black bg-black text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700'
+                      className={`min-w-[42px] sm:min-w-[48px] py-2 px-3 rounded-lg sm:rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                        size === s ? 'border-black bg-black text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
                       }`}
                     >
                       {s}
@@ -214,15 +218,15 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               </div>
 
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step2Color}</label>
-                <div className="flex flex-wrap gap-2">
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">{t.step2Color}</label>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
                   {colors.map((c) => (
                     <button
                       key={c}
                       type="button"
                       onClick={() => setColor(c)}
-                      className={`px-3.5 py-1.5 rounded-lg border text-xs font-medium transition-all ${
-                        color === c ? 'border-black bg-zinc-900 text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700'
+                      className={`px-3 py-1.5 rounded-lg sm:rounded-xl border text-xs font-medium transition-all active:scale-95 ${
+                        color === c ? 'border-black bg-zinc-900 text-white shadow-xs' : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
                       }`}
                     >
                       {c}
@@ -232,13 +236,13 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               </div>
 
               <div>
-                <label className="text-xs font-mono font-bold text-zinc-800 block mb-2">{t.step3Qty}</label>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">{t.step3Qty}</label>
                 <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden shadow-xs">
-                  <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100 font-bold">
+                  <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center">
                     -
                   </button>
-                  <span className="w-12 text-center font-mono font-bold text-sm">{quantity}</span>
-                  <button type="button" onClick={() => setQuantity(Math.min(20, quantity + 1))} className="px-3 py-2 text-zinc-600 hover:bg-zinc-100 font-bold">
+                  <span className="w-10 sm:w-12 text-center font-mono font-bold text-xs sm:text-sm">{quantity}</span>
+                  <button type="button" onClick={() => setQuantity(Math.min(20, quantity + 1))} className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center">
                     +
                   </button>
                 </div>
@@ -246,12 +250,12 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             </div>
 
             {/* Customer Info */}
-            <div className="space-y-4">
+            <div className="space-y-3.5 sm:space-y-4">
               <h5 className="text-xs font-mono font-bold text-zinc-900 uppercase pb-1 border-b border-zinc-200">
                 {t.customerInfoTitle}
               </h5>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 mb-1">{t.fullNameLabel}</label>
                   <input
@@ -260,7 +264,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     placeholder={t.fullNamePlaceholder}
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   />
                 </div>
                 <div>
@@ -271,19 +275,19 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     placeholder={t.studentIdPlaceholder}
                     value={formData.studentId}
                     onChange={(e) => setFormData({ ...formData, studentId: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-mono focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 mb-1">{t.yearLabel}</label>
                   <select
                     required
                     value={formData.yearOfStudy}
                     onChange={(e) => handleYearChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   >
                     <option value="">{t.yearPlaceholder}</option>
                     {STORE_CONFIG.years.map((y) => (
@@ -297,7 +301,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     required
                     value={formData.major}
                     onChange={(e) => setFormData({ ...formData, major: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   >
                     <option value="">{t.majorPlaceholder}</option>
                     {isGraduate ? (
@@ -326,7 +330,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <div>
                   <label className="block text-xs font-medium text-zinc-700 mb-1">{t.phoneLabel}</label>
                   <input
@@ -335,7 +339,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     placeholder={t.phonePlaceholder}
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm font-mono focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   />
                 </div>
                 <div>
@@ -346,75 +350,96 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     placeholder={t.contactPlaceholder}
                     value={formData.contact}
                     onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   />
                 </div>
               </div>
             </div>
 
-            {/* Delivery */}
+            {/* Delivery Method */}
             <div className="space-y-3">
               <h5 className="text-xs font-mono font-bold text-zinc-900 uppercase pb-1 border-b border-zinc-200">
                 {t.deliveryTitle}
               </h5>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50 hover:bg-zinc-100 transition-colors">
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                <label className={`p-3 sm:p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                  deliveryMethod === 'pickup' ? 'border-black bg-zinc-50 shadow-xs' : 'border-zinc-200 hover:bg-zinc-50'
+                }`}>
                   <input
                     type="radio"
                     name="delivery"
+                    value="pickup"
                     checked={deliveryMethod === 'pickup'}
                     onChange={() => setDeliveryMethod('pickup')}
-                    className="mt-1"
+                    className="mt-0.5 accent-black"
                   />
                   <div>
-                    <div className="font-bold text-xs">{t.pickupOption}</div>
-                    <div className="text-[11px] text-zinc-500">{t.pickupDesc}</div>
+                    <div className="font-bold text-xs text-zinc-900">{t.pickupOption}</div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5 leading-tight">{t.pickupDesc}</div>
+                    <div className="text-[10.5px] font-mono text-emerald-600 font-bold mt-1">FREE (0 THB)</div>
                   </div>
                 </label>
 
-                <label className="cursor-pointer border border-zinc-200 rounded-xl p-3.5 flex items-start gap-3 bg-zinc-50 hover:bg-zinc-100 transition-colors">
+                <label className={`p-3 sm:p-3.5 rounded-xl border flex items-start gap-3 cursor-pointer transition-all ${
+                  deliveryMethod === 'shipping' ? 'border-black bg-zinc-50 shadow-xs' : 'border-zinc-200 hover:bg-zinc-50'
+                }`}>
                   <input
                     type="radio"
                     name="delivery"
+                    value="shipping"
                     checked={deliveryMethod === 'shipping'}
                     onChange={() => setDeliveryMethod('shipping')}
-                    className="mt-1"
+                    className="mt-0.5 accent-black"
                   />
                   <div>
-                    <div className="font-bold text-xs">{t.shippingOption}</div>
-                    <div className="text-[11px] text-zinc-500">+{formatCurrency(STORE_CONFIG.faculty.shippingFee)} {t.shippingDesc}</div>
+                    <div className="font-bold text-xs text-zinc-900">{t.shippingOption}</div>
+                    <div className="text-[11px] text-zinc-500 mt-0.5 leading-tight">{t.shippingDesc}</div>
+                    <div className="text-[10.5px] font-mono text-zinc-700 font-bold mt-1">+ {formatCurrency(STORE_CONFIG.faculty.shippingFee)}</div>
                   </div>
                 </label>
               </div>
 
               {deliveryMethod === 'shipping' && (
-                <div className="pt-2">
+                <div className="pt-1">
                   <label className="block text-xs font-medium text-zinc-700 mb-1">{t.addressLabel}</label>
                   <textarea
-                    rows="2"
                     required
+                    rows="3"
                     placeholder={t.addressPlaceholder}
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs focus:bg-white"
+                    className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
                   ></textarea>
                 </div>
               )}
             </div>
 
-            {/* Payment & Slip */}
-            <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-4">
-              <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-medium text-zinc-700 mb-1">{t.notesLabel}</label>
+              <input
+                type="text"
+                placeholder={t.notesPlaceholder}
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              />
+            </div>
+
+            {/* Payment Section */}
+            <div className="p-4 sm:p-5 bg-zinc-900 text-white rounded-2xl space-y-4">
+              <div className="flex items-center justify-between border-b border-zinc-800 pb-2.5">
                 <span className="text-xs font-mono font-bold">{t.paymentTitle}</span>
                 <span className="text-xs font-mono font-bold text-amber-400">{t.totalPayLabel} {formatCurrency(grandTotal)}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <div className="sm:col-span-5 flex flex-col items-center justify-center p-2.5 bg-white rounded-xl shadow-xs">
+                <div className="sm:col-span-5 flex flex-col items-center justify-center p-3 bg-white rounded-xl shadow-xs">
                   <img 
                     src="/assets/payment_qr.jpg" 
                     alt="Payment QR Code" 
-                    className="w-36 h-36 object-contain rounded-lg"
+                    className="w-32 h-32 sm:w-36 sm:h-36 object-contain rounded-lg"
                     onError={(e) => { e.target.src = getPromptPayQRUrl(grandTotal); }}
                   />
                   <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">{t.scanQRLabel}</span>
@@ -424,9 +449,9 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
                     <span className="text-zinc-400 text-[10.5px]">{t.bankLabel}</span>
                     <div className="font-bold text-emerald-400 text-xs">{STORE_CONFIG.payment.bankName}</div>
                     <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNoLabel}</div>
-                    <div className="font-bold text-white text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
+                    <div className="font-bold text-white text-sm sm:text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
                     <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">{t.accNameLabel}</div>
-                    <div className="font-bold text-amber-300 text-xs">{STORE_CONFIG.payment.bankAccountName}</div>
+                    <div className="font-bold text-amber-300 text-xs truncate">{STORE_CONFIG.payment.bankAccountName}</div>
                   </div>
                 </div>
               </div>
@@ -434,7 +459,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               <div>
                 <label className="block text-xs font-medium text-zinc-300 mb-1.5">{t.attachSlipLabel}</label>
                 {!slipPreview ? (
-                  <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-6 block text-center cursor-pointer transition-colors">
+                  <label className="border-2 border-dashed border-zinc-700 hover:border-zinc-500 bg-zinc-800/50 rounded-xl p-5 sm:p-6 block text-center cursor-pointer transition-colors">
                     <input type="file" accept="image/*" onChange={(e) => handleFileChange(e.target.files[0])} className="hidden" />
                     <span className="text-xs text-zinc-200 font-medium">{t.selectSlipFile}</span>
                     <span className="text-[10px] text-zinc-400 block mt-1 font-mono">{t.slipHint}</span>
@@ -452,10 +477,10 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             </div>
 
             {/* Total & Submit */}
-            <div className="pt-4 border-t border-zinc-200 space-y-2">
+            <div className="pt-4 border-t border-zinc-200 space-y-2.5">
               {isClosed && (
                 <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold text-center">
-                  ⚠️ ขออภัย สินค้ารายการนี้ปิดรับการสั่งจองแล้ว หรือหมดเวลาสั่งจองแล้ว
+                  ⚠️ ขออภัย สินค้านี้ปิดรับจองแล้ว
                 </div>
               )}
 
@@ -467,7 +492,7 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
               <button
                 type="submit"
                 disabled={isSubmitting || isClosed}
-                className={`w-full py-3.5 font-bold text-sm rounded-xl shadow-lg transition-all ${
+                className={`w-full py-3.5 sm:py-4 font-bold text-sm rounded-xl sm:rounded-2xl shadow-lg transition-all active:scale-[0.99] ${
                   isClosed
                     ? 'bg-zinc-300 text-zinc-500 cursor-not-allowed border border-zinc-400'
                     : 'bg-zinc-900 hover:bg-black text-white disabled:opacity-50'

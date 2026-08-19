@@ -87,16 +87,16 @@ export default function HeroBanner({ products }) {
   ) : '';
 
   return (
-    <section className="relative bg-blueprint border-b border-zinc-200 overflow-hidden pt-12 pb-16 lg:py-20">
+    <section className="relative bg-blueprint border-b border-zinc-200 overflow-hidden pt-8 pb-12 sm:pt-12 sm:pb-16 lg:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-3xl">
           
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 text-white rounded-md text-xs font-mono mb-6 shadow-sm">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-zinc-900 text-white rounded-md text-xs font-mono mb-4 sm:mb-6 shadow-sm">
             <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
             <span>{t.officialMerch}</span>
           </div>
 
-          <h1 className="font-display font-extrabold text-3xl sm:text-5xl lg:text-6xl text-zinc-950 tracking-tight leading-[1.1]">
+          <h1 className="font-display font-extrabold text-2xl xs:text-3xl sm:text-5xl lg:text-6xl text-zinc-950 tracking-tight leading-[1.1]">
             {t.heroTitle1} <br className="hidden sm:inline" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-zinc-900 via-zinc-700 to-zinc-500">{t.heroTitle2}</span>
           </h1>
@@ -104,13 +104,13 @@ export default function HeroBanner({ products }) {
         </div>
 
         {/* Countdown Box */}
-        <div className="mt-10 p-5 sm:p-6 bg-zinc-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6 border border-zinc-800">
+        <div className="mt-8 sm:mt-10 p-4 sm:p-6 bg-zinc-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 border border-zinc-800">
           <div>
             <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
               <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
               <span>{t.countdownTag}</span>
             </div>
-            <h3 className="text-lg sm:text-xl font-bold mt-1 tracking-tight">
+            <h3 className="text-base sm:text-xl font-bold mt-1 tracking-tight">
               {t.countdownTitle}
             </h3>
             <p className="text-xs text-amber-400/90 mt-1 font-mono">
@@ -118,31 +118,28 @@ export default function HeroBanner({ products }) {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 font-mono">
+          <div className="w-full md:w-auto font-mono">
             {timeLeft ? (
-              <>
-                <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.days).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">{t.daysUpper}</span>
+              <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-3 max-w-sm sm:max-w-none">
+                <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+                  <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.days).padStart(2, '0')}</span>
+                  <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.daysUpper}</span>
                 </div>
-                <span className="text-zinc-600 text-xl font-bold">:</span>
-                <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.hours).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">{t.hoursUpper}</span>
+                <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+                  <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.hours).padStart(2, '0')}</span>
+                  <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.hoursUpper}</span>
                 </div>
-                <span className="text-zinc-600 text-xl font-bold">:</span>
-                <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
-                  <span className="text-xl sm:text-2xl font-bold text-white">{String(timeLeft.minutes).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">{t.minsUpper}</span>
+                <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+                  <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.minutes).padStart(2, '0')}</span>
+                  <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.minsUpper}</span>
                 </div>
-                <span className="text-zinc-600 text-xl font-bold">:</span>
-                <div className="flex flex-col items-center bg-zinc-800/80 px-3.5 py-2 rounded-xl border border-zinc-700 min-w-[60px]">
-                  <span className="text-xl sm:text-2xl font-bold text-amber-400">{String(timeLeft.seconds).padStart(2, '0')}</span>
-                  <span className="text-[10px] text-zinc-400 uppercase">{t.secsUpper}</span>
+                <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+                  <span className="text-lg xs:text-xl sm:text-2xl font-black text-amber-400 leading-none">{String(timeLeft.seconds).padStart(2, '0')}</span>
+                  <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.secsUpper}</span>
                 </div>
-              </>
+              </div>
             ) : (
-              <div className="px-4 py-2 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs flex items-center gap-2">
+              <div className="px-4 py-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
                 <span>{t.closedNotice}</span>
               </div>
             )}

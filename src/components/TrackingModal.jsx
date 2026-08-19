@@ -45,13 +45,13 @@ export default function TrackingModal({ isOpen, onClose }) {
 
   return (
     <>
-      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
-        <div className="bg-white w-full max-w-xl rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+        <div className="bg-white w-full max-w-xl rounded-2xl sm:rounded-3xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[92vh]">
           
           {/* Modal Header */}
-          <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
+          <div className="px-4 py-3.5 sm:px-5 sm:py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50">
             <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-zinc-900"></span>
+              <span className="w-2.5 h-2.5 rounded-full bg-zinc-900 animate-pulse"></span>
               <h3 className="font-bold text-zinc-900 text-sm">{t.trackingTitle}</h3>
             </div>
             <button 
@@ -63,26 +63,26 @@ export default function TrackingModal({ isOpen, onClose }) {
             </button>
           </div>
 
-          <div className="p-5 space-y-4 overflow-y-auto flex-1">
+          <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
             {/* Search Box */}
             <form onSubmit={handleSearch} className="space-y-2">
               <label className="text-[11px] font-mono text-zinc-500">
                 {t.trackingSearchHelp}
               </label>
-              <div className="flex gap-2">
+              <div className="flex flex-col xs:flex-row gap-2">
                 <div className="relative flex-1">
                   <input
                     type="text"
                     placeholder={t.trackingInputPlaceholder}
                     value={term}
                     onChange={(e) => setTerm(e.target.value)}
-                    className="w-full pl-3.5 pr-8 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono focus:bg-white focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
+                    className="w-full pl-3.5 pr-8 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm sm:text-xs font-mono focus:bg-white focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
                   />
                   {term && (
                     <button
                       type="button"
                       onClick={handleReset}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs p-1"
                     >
                       ✕
                     </button>
@@ -91,7 +91,7 @@ export default function TrackingModal({ isOpen, onClose }) {
                 <button
                   type="submit"
                   disabled={loading || !term.trim()}
-                  className="px-5 py-2.5 bg-zinc-900 hover:bg-black disabled:bg-zinc-300 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 shrink-0"
+                  className="px-5 py-2.5 bg-zinc-900 hover:bg-black disabled:bg-zinc-300 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
                 >
                   {loading ? (
                     <span>{t.searchingBtn}</span>
@@ -127,13 +127,13 @@ export default function TrackingModal({ isOpen, onClose }) {
                 const isRejected = order.payment_status === 'rejected';
 
                 return (
-                  <div key={order.id} className="p-4 bg-white rounded-xl border border-zinc-200 shadow-xs space-y-3 text-xs">
+                  <div key={order.id} className="p-3.5 sm:p-4 bg-white rounded-xl sm:rounded-2xl border border-zinc-200 shadow-xs space-y-3 text-xs">
                     
                     {/* Header: ID + Status */}
-                    <div className="flex justify-between items-center border-b pb-2.5">
+                    <div className="flex justify-between items-center border-b pb-2.5 gap-2">
                       <div>
                         <span className="text-[10px] font-mono text-zinc-400 uppercase">Order Ref</span>
-                        <div className="font-mono font-bold text-zinc-900 text-xs">#{order.id.substring(0, 8)}</div>
+                        <div className="font-mono font-bold text-zinc-900 text-xs">#{String(order?.id || '').substring(0, 8)}</div>
                       </div>
                       <div className="text-right">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-bold text-[10px] font-mono ${
