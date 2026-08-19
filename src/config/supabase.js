@@ -15,7 +15,8 @@ export const isLiveSupabase = supabaseUrl && supabaseAnonKey &&
 
 export const supabase = isLiveSupabase 
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true }
+      auth: { persistSession: true, autoRefreshToken: true },
+      realtime: { params: { eventsPerSecond: 10 } }
     })
   : null;
 
@@ -26,16 +27,42 @@ export const supabase = isLiveSupabase
 export const api = {
   // Products
   async getProducts(publicOnly = true) {
-    if (isLiveSupabase && supabase) {
-      let query = supabase.from('products').select('*').order('created_at', { ascending: false });
-      if (publicOnly) query = query.eq('is_active', true);
-      const { data, error } = await query;
-      if (error) throw error;
-      return data || [];
+    try {
+      if (isLiveSupabase && supabase) {
+        let query = supabase.from('products').select('*').order('created_at', { ascending: false });
+        if (publicOnly) query = query.eq('is_active', true);
+        const { data, error } = await query;
+        if (error) {
+          console.warn('Supabase getProducts notice (using local fallback):', error);
+          const local = localStorage.getItem('archshop_mock_products');
+          const items = local ? JSON.parse(local) : MOCK_PRODUCTS;
+          return Array.isArray(items) ? (publicOnly ? items.filter(p => p?.is_active) : items) : MOCK_PRODUCTS;
+        }
+        return Array.isArray(data) ? data : [];
+      }
+      const local = localStorage.getItem('archshop_mock_products');
+      const items = local ? JSON.parse(local) : MOCK_PRODUCTS;
+      return Array.isArray(items) ? (publicOnly ? items.filter(p => p?.is_active) : items) : MOCK_PRODUCTS;
+    } catch (err) {
+      console.warn('getProducts fallback notice:', err);
+      return MOCK_PRODUCTS;
     }
-    const local = localStorage.getItem('archshop_mock_products');
-    const items = local ? JSON.parse(local) : MOCK_PRODUCTS;
-    return publicOnly ? items.filter(p => p.is_active) : items;
+  },
+
+  async getProductById(id) {
+    if (!id) return null;
+    try {
+      if (isLiveSupabase && supabase) {
+        const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
+        if (!error && data) return data;
+      }
+      const local = localStorage.getItem('archshop_mock_products');
+      const items = local ? JSON.parse(local) : MOCK_PRODUCTS;
+      return Array.isArray(items) ? (items.find(p => p?.id === id) || null) : null;
+    } catch (err) {
+      console.warn('getProductById notice:', err);
+      return null;
+    }
   },
 
   async createProduct(productData) {
@@ -45,13 +72,16 @@ export const api = {
         console.error('Supabase createProduct error:', error);
         throw error;
       }
-      return data?.[0] || productData;
+      const created = data?.[0] || productData;
+      window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'INSERT', product: created } }));
+      return created;
     }
     const local = localStorage.getItem('archshop_mock_products');
     const items = local ? JSON.parse(local) : MOCK_PRODUCTS;
     const newP = { ...productData, id: 'prod-' + Date.now().toString(36), created_at: new Date().toISOString() };
     items.unshift(newP);
     localStorage.setItem('archshop_mock_products', JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'INSERT', product: newP } }));
     return newP;
   },
 
@@ -73,13 +103,17 @@ export const api = {
         console.error('Supabase updateProduct error:', error);
         throw error;
       }
-      return data?.[0] || { id, ...cleanUpdates };
+      const updated = data?.[0] || { id, ...cleanUpdates };
+      window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'UPDATE', product: updated } }));
+      return updated;
     }
     const local = localStorage.getItem('archshop_mock_products');
     let items = local ? JSON.parse(local) : MOCK_PRODUCTS;
     items = items.map(p => p.id === id ? { ...p, ...cleanUpdates } : p);
     localStorage.setItem('archshop_mock_products', JSON.stringify(items));
-    return items.find(p => p.id === id);
+    const updated = items.find(p => p.id === id);
+    window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'UPDATE', product: updated } }));
+    return updated;
   },
 
   async deleteProduct(id) {
@@ -97,17 +131,33 @@ export const api = {
         console.error('Supabase deleteProduct error:', error);
         throw error;
       }
+      window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'DELETE', id } }));
       return true;
     }
     const local = localStorage.getItem('archshop_mock_products');
     let items = local ? JSON.parse(local) : MOCK_PRODUCTS;
     items = items.filter(p => p.id !== id);
     localStorage.setItem('archshop_mock_products', JSON.stringify(items));
+    window.dispatchEvent(new CustomEvent('arch_products_updated', { detail: { type: 'DELETE', id } }));
     return true;
   },
 
   // Orders
   async submitOrder(orderData) {
+    // 1. Validate that the product exists, is active, and the order deadline hasn't passed
+    if (orderData.product_id) {
+      const prod = await this.getProductById(orderData.product_id);
+      if (!prod) {
+        throw new Error('ไม่พบสินค้านี้ในระบบ หรือสินค้าถูกยกเลิกแล้ว');
+      }
+      if (prod.is_active === false) {
+        throw new Error('ขออภัย สินค้านี้ปิดรับสั่งจองแล้ว (Sales Closed)');
+      }
+      if (prod.order_deadline && new Date(prod.order_deadline) < new Date()) {
+        throw new Error('ขออภัย หมดเวลาสั่งจองสินค้านี้แล้ว (Order Deadline Expired)');
+      }
+    }
+
     if (isLiveSupabase && supabase) {
       const { data, error } = await supabase.from('orders').insert([orderData]).select();
       if (error) {
@@ -131,13 +181,24 @@ export const api = {
   },
 
   async getAllOrders() {
-    if (isLiveSupabase && supabase) {
-      const { data, error } = await supabase.from('orders').select('*, products(*)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data || [];
+    try {
+      if (isLiveSupabase && supabase) {
+        const { data, error } = await supabase.from('orders').select('*, products(*)').order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Supabase getAllOrders notice (using local fallback):', error);
+          const local = localStorage.getItem('archshop_mock_orders');
+          const items = local ? JSON.parse(local) : MOCK_ORDERS;
+          return Array.isArray(items) ? items : MOCK_ORDERS;
+        }
+        return Array.isArray(data) ? data : [];
+      }
+      const local = localStorage.getItem('archshop_mock_orders');
+      const items = local ? JSON.parse(local) : MOCK_ORDERS;
+      return Array.isArray(items) ? items : MOCK_ORDERS;
+    } catch (err) {
+      console.warn('getAllOrders fallback notice:', err);
+      return MOCK_ORDERS;
     }
-    const local = localStorage.getItem('archshop_mock_orders');
-    return local ? JSON.parse(local) : MOCK_ORDERS;
   },
 
   async trackOrder(term) {
@@ -172,11 +233,11 @@ export const api = {
     const orders = local ? JSON.parse(local) : MOCK_ORDERS;
     const lower = cleanTerm.toLowerCase();
     return orders.filter(o => 
-      o.id?.toLowerCase().includes(lower) ||
-      o.student_id?.toLowerCase().includes(lower) ||
-      o.phone_number?.includes(cleanTerm) ||
-      o.full_name?.toLowerCase().includes(lower) ||
-      o.email_or_line_id?.toLowerCase().includes(lower)
+      String(o.id || '').toLowerCase().includes(lower) ||
+      String(o.student_id || '').toLowerCase().includes(lower) ||
+      String(o.phone_number || '').includes(cleanTerm) ||
+      String(o.full_name || '').toLowerCase().includes(lower) ||
+      String(o.email_or_line_id || '').toLowerCase().includes(lower)
     );
   },
 
@@ -268,15 +329,49 @@ export const api = {
   // Realtime
   subscribeOrders(onInsert, onUpdate, onDelete) {
     if (isLiveSupabase && supabase) {
-      return supabase
+      const channel = supabase
         .channel('realtime-orders')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, p => onInsert && onInsert(p.new))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => onUpdate && onUpdate(p.new))
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, p => onDelete && onDelete(p.old))
         .subscribe();
+
+      return {
+        unsubscribe: () => {
+          try {
+            supabase.removeChannel(channel);
+          } catch (e) {
+            console.warn('removeChannel error:', e);
+          }
+        }
+      };
     }
     const handler = (e) => onInsert && onInsert(e.detail);
     window.addEventListener('arch_order_created', handler);
     return { unsubscribe: () => window.removeEventListener('arch_order_created', handler) };
+  },
+
+  subscribeProducts(onChange) {
+    if (isLiveSupabase && supabase) {
+      const channel = supabase
+        .channel('realtime-products')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
+          if (onChange) onChange(payload);
+        })
+        .subscribe();
+
+      return {
+        unsubscribe: () => {
+          try {
+            supabase.removeChannel(channel);
+          } catch (e) {
+            console.warn('removeChannel error:', e);
+          }
+        }
+      };
+    }
+    const handler = (e) => onChange && onChange(e.detail);
+    window.addEventListener('arch_products_updated', handler);
+    return { unsubscribe: () => window.removeEventListener('arch_products_updated', handler) };
   }
 };

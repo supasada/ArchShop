@@ -18,7 +18,8 @@ export default function ProductCard({ product, onOrderClick }) {
       : formatDateThai(product.order_deadline)
   ) : '-';
 
-  const isExpired = product.order_deadline && new Date(product.order_deadline) < new Date();
+  const isExpired = Boolean(product.order_deadline && new Date(product.order_deadline) < new Date());
+  const isClosed = product.is_active === false || isExpired;
 
   return (
     <div className="arch-card-interactive bg-white rounded-2xl overflow-hidden flex flex-col group border border-zinc-200">
@@ -46,10 +47,10 @@ export default function ProductCard({ product, onOrderClick }) {
           {formatCurrency(product.price)}
         </div>
 
-        {isExpired && (
-          <div className="absolute inset-0 bg-black/65 flex items-center justify-center">
-            <span className="px-4 py-2 bg-rose-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg">
-              {t.closedNotice}
+        {isClosed && (
+          <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-4 text-center">
+            <span className="px-4 py-2 bg-rose-600 text-white text-xs font-bold uppercase tracking-wider rounded-xl shadow-lg animate-pulse">
+              🔴 ปิดรับการสั่งจองเสื้อรอบนี้แล้ว
             </span>
           </div>
         )}
@@ -85,10 +86,14 @@ export default function ProductCard({ product, onOrderClick }) {
           <button
             type="button"
             onClick={() => onOrderClick(product)}
-            disabled={isExpired}
-            className="w-full py-3 px-4 bg-zinc-900 hover:bg-black text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={isClosed}
+            className={`w-full py-3 px-4 font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-sm transition-all duration-200 ${
+              isClosed
+                ? 'bg-zinc-200 text-zinc-500 cursor-not-allowed border border-zinc-300'
+                : 'bg-zinc-900 hover:bg-black text-white hover:shadow-md active:scale-[0.99]'
+            }`}
           >
-            <span>{t.orderNowBtn}</span>
+            <span>{isClosed ? '🔴 ปิดรับจองแล้ว (Closed)' : t.orderNowBtn}</span>
           </button>
         </div>
       </div>

@@ -33,6 +33,9 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
   if (!product) return null;
 
+  const isExpired = Boolean(product.order_deadline && new Date(product.order_deadline) < new Date());
+  const isClosed = product.is_active === false || isExpired;
+
   const unitPrice = Number(product.price);
   const subtotal = unitPrice * quantity;
   const shippingFee = deliveryMethod === 'shipping' ? STORE_CONFIG.faculty.shippingFee : 0;
@@ -86,6 +89,11 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isClosed) {
+      alert('ขออภัย สินค้ารายการนี้ปิดรับการสั่งจองแล้ว หรือหมดเวลาสั่งจองแล้ว ไม่สามารถส่งคำสั่งซื้อได้');
+      return;
+    }
 
     if (!formData.fullName || formData.fullName.length < 2) return alert(t.errFullName);
     if (!formData.studentId || formData.studentId.length < 4) return alert(t.errStudentId);
@@ -445,6 +453,12 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
             {/* Total & Submit */}
             <div className="pt-4 border-t border-zinc-200 space-y-2">
+              {isClosed && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-bold text-center">
+                  ⚠️ ขออภัย สินค้ารายการนี้ปิดรับการสั่งจองแล้ว หรือหมดเวลาสั่งจองแล้ว
+                </div>
+              )}
+
               <div className="flex justify-between text-base font-bold font-mono">
                 <span>{t.grandTotalLabel}</span>
                 <span className="text-xl text-emerald-600">{formatCurrency(grandTotal)}</span>
@@ -452,10 +466,14 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
 
               <button
                 type="submit"
-                disabled={isSubmitting}
-                className="w-full py-3.5 bg-zinc-900 hover:bg-black text-white font-bold text-sm rounded-xl shadow-lg transition-all disabled:opacity-50"
+                disabled={isSubmitting || isClosed}
+                className={`w-full py-3.5 font-bold text-sm rounded-xl shadow-lg transition-all ${
+                  isClosed
+                    ? 'bg-zinc-300 text-zinc-500 cursor-not-allowed border border-zinc-400'
+                    : 'bg-zinc-900 hover:bg-black text-white disabled:opacity-50'
+                }`}
               >
-                {isSubmitting ? t.submittingBtn : t.submitOrderBtn}
+                {isClosed ? '🔴 สินค้านี้ปิดรับจองแล้ว (Closed)' : (isSubmitting ? t.submittingBtn : t.submitOrderBtn)}
               </button>
             </div>
 

@@ -22,11 +22,19 @@ export default function App() {
 
   const loadProducts = async () => {
     try {
-      setLoading(true);
-      const data = await api.getProducts(true);
-      setProducts(data || []);
+      // Fetch all products (including status flags) so we can react in real-time
+      const data = await api.getProducts(false);
+      const safeList = Array.isArray(data) ? data : [];
+      setProducts(safeList);
+
+      // Keep active open modal synced with latest product status
+      setSelectedProduct(prev => {
+        if (!prev) return null;
+        const fresh = safeList.find(p => p.id === prev.id);
+        return fresh || prev;
+      });
     } catch (err) {
-      console.error(err);
+      console.warn('loadProducts notice:', err);
     } finally {
       setLoading(false);
     }
@@ -34,6 +42,32 @@ export default function App() {
 
   useEffect(() => {
     loadProducts();
+
+    // 1. Real-time WebSocket subscription for product updates & sales closing
+    const sub = api.subscribeProducts(() => {
+      loadProducts();
+    });
+
+    // 2. Fallback polling every 5 seconds to ensure 100% real-time sync across browsers
+    const intervalId = setInterval(() => {
+      loadProducts();
+    }, 5000);
+
+    // 3. Tab visibility / focus sync
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        loadProducts();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('focus', loadProducts);
+
+    return () => {
+      if (sub?.unsubscribe) sub.unsubscribe();
+      clearInterval(intervalId);
+      window.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('focus', loadProducts);
+    };
   }, []);
 
   const handleOrderSuccess = (order, product) => {

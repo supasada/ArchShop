@@ -20,7 +20,12 @@ export default function HeroBanner({ products }) {
 
       // 2. Check active products from Supabase
       if (products && products.length > 0) {
-        const valid = products
+        const activeProds = products.filter(p => p.is_active !== false);
+        if (activeProds.length === 0) {
+          // All products explicitly closed
+          return new Date(Date.now() - 1000);
+        }
+        const valid = activeProds
           .filter(p => p.order_deadline)
           .map(p => new Date(p.order_deadline))
           .filter(d => !isNaN(d.getTime()));
