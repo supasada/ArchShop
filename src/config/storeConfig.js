@@ -66,11 +66,10 @@ export const STORE_CONFIG = {
   ],
 
   sizeChart: [
-    { size: 'S', chest: '36"', length: '27"', shoulder: '17"' },
-    { size: 'M', chest: '38"', length: '28"', shoulder: '18"' },
-    { size: 'L', chest: '42"', length: '29"', shoulder: '19"' },
-    { size: 'XL', chest: '46"', length: '30"', shoulder: '20"' },
-    { size: '2XL', chest: '50"', length: '31"', shoulder: '21.5"' },
-    { size: '3XL', chest: '54"', length: '32"', shoulder: '23"' }
+    { size: 'S', chest: '32"', length: '23"', sleeve: '6"', armhole: '14"', shoulder: '13"' },
+    { size: 'M', chest: '36"', length: '25"', sleeve: '7"', armhole: '15.5"', shoulder: '15"' },
+    { size: 'L', chest: '40"', length: '27"', sleeve: '8"', armhole: '17.5"', shoulder: '17"' },
+    { size: 'XL', chest: '44"', length: '29"', sleeve: '9"', armhole: '19"', shoulder: '19"' },
+    { size: '2XL', chest: '48"', length: '31"', sleeve: '10"', armhole: '21"', shoulder: '21"' }
   ]
 };

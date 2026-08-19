@@ -8,7 +8,7 @@ export const MOCK_PRODUCTS = [
     name: 'ARCH 2026 : STRUCTURE & VOID (Black Edition)',
     description: 'เสื้อยืดรุ่นซิกเนเจอร์ประจำปี 2026 สกรีนลายโครงสร้าง Isometric Wireframe ด้านหน้า และผัง Elevations คณะสถาปัตยกรรมศาสตร์ด้านหลัง เนื้อผ้า Cotton Comb 100% เบอร์ 20 นุ่มสบาย ทรงสตรีทโอเวอร์ไซส์ ทนทาน ซักไม่หด',
     price: 350,
-    available_sizes: ['S', 'M', 'L', 'XL', '2XL', '3XL'],
+    available_sizes: ['S', 'M', 'L', 'XL', '2XL'],
     available_colors: ['Deep Black', 'Slate Charcoal'],
     image_front_url: '/assets/images/arch_shirt_front.jpg',
     image_back_url: '/assets/images/arch_shirt_back.jpg',

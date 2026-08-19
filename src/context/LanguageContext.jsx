@@ -102,12 +102,15 @@ export const translations = {
     closeBtn: 'ปิด',
 
     // Size Chart Modal
-    sizeChartTitle: 'ตารางเทียบไซส์เสื้อ (SIZE CHART)',
+    sizeChartTitle: 'ตารางเทียบไซส์เสื้อยืด (T-SHIRT UNISEX SIZE CHART)',
     sizeCol: 'ไซส์ (Size)',
-    chestCol: 'รอบอก (นิ้ว)',
-    lengthCol: 'ความยาว (นิ้ว)',
-    shoulderCol: 'ไหล่กว้าง (นิ้ว)',
-    sizeUnitNote: '* ขนาดทั้งหมดมีหน่วยวัดเป็นนิ้ว (Inches) เนื้อผ้า Cotton Comb 100% สวมใส่สบายทรงสวย',
+    chestCol: 'รอบอก',
+    lengthCol: 'ความยาวเสื้อ',
+    sleeveCol: 'ความยาวแขน',
+    armholeCol: 'รอบวงแขน',
+    shoulderCol: 'ความกว้างไหล่',
+    sizeUnitNote: '* ขนาดทั้งหมดมีหน่วยวัดเป็นนิ้ว (Inches) เนื้อผ้าสวมใส่สบายทรง Unisex',
+    sizeVariationNote: 'ขนาดอาจคลาดเคลื่อน +- 1 นิ้ว',
 
     // Alerts
     errFullName: 'กรุณากรอกชื่อ-นามสกุลจริง',
@@ -223,12 +226,15 @@ export const translations = {
     closeBtn: 'Close',
 
     // Size Chart Modal
-    sizeChartTitle: 'Size Measurement Chart (Inches)',
+    sizeChartTitle: 'T-Shirt Unisex Size Measurement Chart (Inches)',
     sizeCol: 'Size',
-    chestCol: 'Chest (Inches)',
-    lengthCol: 'Length (Inches)',
-    shoulderCol: 'Shoulder (Inches)',
-    sizeUnitNote: '* All measurements are in inches. Premium 100% Cotton Comb fabric, comfortable fit.',
+    chestCol: 'Chest',
+    lengthCol: 'Length',
+    sleeveCol: 'Sleeve Length',
+    armholeCol: 'Armhole',
+    shoulderCol: 'Shoulder Width',
+    sizeUnitNote: '* All measurements are in inches. Unisex comfortable fit.',
+    sizeVariationNote: 'Measurement tolerance +- 1 inch',
 
     // Alerts
     errFullName: 'Please enter your full name',
@@ -344,12 +350,15 @@ export const translations = {
     closeBtn: '关闭',
 
     // Size Chart Modal
-    sizeChartTitle: '衣服尺码详细对照表 (SIZE CHART)',
+    sizeChartTitle: 'T-Shirt Unisex 衣服尺码详细对照表 (SIZE CHART)',
     sizeCol: '尺码 (Size)',
-    chestCol: '胸围 (英寸)',
-    lengthCol: '衣长 (英寸)',
-    shoulderCol: '肩宽 (英寸)',
-    sizeUnitNote: '* 所有尺寸单位均为英寸 (Inches)。100% 精梳纯棉 (Cotton Comb)，舒适透气。',
+    chestCol: '胸围',
+    lengthCol: '衣长',
+    sleeveCol: '袖长',
+    armholeCol: '袖窿/臂围',
+    shoulderCol: '肩宽',
+    sizeUnitNote: '* 所有尺寸单位均为英寸 (Inches)。舒适 Unisex 版型。',
+    sizeVariationNote: '尺寸可能存在 +- 1 英寸的误差',
 
     // Alerts
     errFullName: '请输入订购人姓名',
