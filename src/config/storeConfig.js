@@ -17,11 +17,12 @@ export const STORE_CONFIG = {
   },
 
   payment: {
-    promptpayNumber: '0891234567',
-    promptpayName: 'สโมสรนักศึกษาคณะสถาปัตย์ (นางสาวกัญญา พ.)',
-    bankName: 'ธนาคารกสิกรไทย (Kasikornbank - KBANK)',
-    bankAccountNo: '123-4-56789-0',
-    bankAccountName: 'สโมสรนักศึกษาคณะสถาปัตยกรรมศาสตร์'
+    promptpayNumber: '147-8-13511-0',
+    promptpayName: 'นางสาว พลินีย์ เพิ่มทวี',
+    bankName: 'ธนาคารกสิกรไทย (KBANK)',
+    bankAccountNo: '147-8-13511-0',
+    bankAccountName: 'นางสาว พลินีย์ เพิ่มทวี',
+    qrCodeImage: '/assets/payment_qr.jpg'
   },
 
   undergraduateMajors: [

@@ -394,24 +394,28 @@ export default function OrderModal({ product, onClose, onSuccess, onOpenSizeChar
             {/* Payment & Slip */}
             <div className="p-4 bg-zinc-900 text-white rounded-2xl space-y-4">
               <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
-                <span className="text-xs font-mono font-bold">PromptPay / ธนาคาร</span>
+                <span className="text-xs font-mono font-bold">💳 ข้อมูลการชำระเงิน</span>
                 <span className="text-xs font-mono font-bold text-amber-400">ยอดชำระ: {formatCurrency(grandTotal)}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
-                <div className="sm:col-span-4 flex flex-col items-center justify-center p-2 bg-white rounded-xl">
-                  <img src={getPromptPayQRUrl(grandTotal)} alt="QR Code" className="w-28 h-28 object-contain" />
-                  <span className="text-[10px] text-zinc-500 font-mono mt-1">สแกนชำระเงิน</span>
+                <div className="sm:col-span-5 flex flex-col items-center justify-center p-2.5 bg-white rounded-xl shadow-xs">
+                  <img 
+                    src="/assets/payment_qr.jpg" 
+                    alt="Payment QR Code" 
+                    className="w-36 h-36 object-contain rounded-lg"
+                    onError={(e) => { e.target.src = getPromptPayQRUrl(grandTotal); }}
+                  />
+                  <span className="text-[10px] text-zinc-700 font-bold font-mono mt-1">สแกน QR Code ชำระเงิน</span>
                 </div>
-                <div className="sm:col-span-8 text-xs font-mono space-y-2">
-                  <div className="bg-zinc-800 p-2.5 rounded-xl">
-                    <span className="text-zinc-400 text-[10px]">PromptPay:</span>
-                    <div className="font-bold text-white mt-0.5">{STORE_CONFIG.payment.promptpayNumber}</div>
-                    <div className="text-[10px] text-zinc-400">{STORE_CONFIG.payment.promptpayName}</div>
-                  </div>
-                  <div className="bg-zinc-800 p-2.5 rounded-xl">
-                    <span className="text-zinc-400 text-[10px]">{STORE_CONFIG.payment.bankName}:</span>
-                    <div className="font-bold text-white mt-0.5">{STORE_CONFIG.payment.bankAccountNo}</div>
+                <div className="sm:col-span-7 text-xs font-mono space-y-2">
+                  <div className="bg-zinc-800 p-3 rounded-xl border border-zinc-700 space-y-1">
+                    <span className="text-zinc-400 text-[10.5px]">ธนาคาร:</span>
+                    <div className="font-bold text-emerald-400 text-xs">{STORE_CONFIG.payment.bankName}</div>
+                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">เลขที่บัญชี:</div>
+                    <div className="font-bold text-white text-base tracking-widest">{STORE_CONFIG.payment.bankAccountNo}</div>
+                    <div className="text-zinc-400 text-[10.5px] pt-1 border-t border-zinc-700/60">ชื่อบัญชี:</div>
+                    <div className="font-bold text-amber-300 text-xs">{STORE_CONFIG.payment.bankAccountName}</div>
                   </div>
                 </div>
               </div>
