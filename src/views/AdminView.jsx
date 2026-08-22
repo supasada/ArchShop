@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
-import { formatCurrency, formatDateThai } from '../utils/formatters';
+import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { STORE_CONFIG } from '../config/storeConfig';
+import DeadlineModal from '../components/DeadlineModal';
+
 
 export default function AdminView({ onBackToStore }) {
   const [session, setSession] = useState(null);
@@ -68,43 +70,7 @@ export default function AdminView({ onBackToStore }) {
 
   // Deadline Settings Modal
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
-  const [deadlineInput, setDeadlineInput] = useState(() => {
-    const saved = localStorage.getItem('arch_custom_deadline');
-    if (saved) {
-      const d = new Date(saved);
-      if (!isNaN(d.getTime())) {
-        // Format to YYYY-MM-DDTHH:mm local time
-        const pad = (n) => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      }
-    }
-    return '2026-08-31T23:59';
-  });
 
-  const handleSaveDeadline = async (e) => {
-    e?.preventDefault();
-    if (!deadlineInput) return alert('กรุณาระบุวันและเวลาที่ถูกต้อง');
-    const targetDate = new Date(deadlineInput);
-    if (isNaN(targetDate.getTime())) return alert('รูปแบบวันเวลาไม่ถูกต้อง');
-
-    const isoDate = targetDate.toISOString();
-    localStorage.setItem('arch_custom_deadline', isoDate);
-    window.dispatchEvent(new CustomEvent('arch_deadline_updated', { detail: isoDate }));
-
-    // Also update order_deadline for active products in Supabase
-    if (products && products.length > 0) {
-      for (const p of products) {
-        try {
-          await api.updateProduct(p.id, { order_deadline: isoDate });
-        } catch (err) {
-          console.warn('Notice updating product deadline:', err);
-        }
-      }
-    }
-
-    setIsDeadlineModalOpen(false);
-    alert('✅ บันทึกวันและเวลาปิดรับจองเรียบร้อยแล้ว!\nระบบนับถอยหลังหน้าเว็บจะอัปเดตตามเวลาจริงทันที');
-  };
 
   // Check auth session
   useEffect(() => {
@@ -311,7 +277,7 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: '',
       image_back_url: '',
       is_active: true,
-      order_deadline: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
+      order_deadline: formatDateToInputLocal(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
     });
     setIsProductModalOpen(true);
   };
@@ -327,7 +293,7 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: p.image_front_url || '',
       image_back_url: p.image_back_url || '',
       is_active: p.is_active ?? true,
-      order_deadline: p.order_deadline ? new Date(p.order_deadline).toISOString().slice(0, 16) : ''
+      order_deadline: p.order_deadline ? formatDateToInputLocal(p.order_deadline) : ''
     });
     setIsProductModalOpen(true);
   };
@@ -341,6 +307,14 @@ export default function AdminView({ onBackToStore }) {
       ? productFormData.available_colors.split(',').map(c => c.trim()).filter(Boolean)
       : productFormData.available_colors;
 
+    let parsedDeadline = null;
+    if (productFormData.order_deadline) {
+      const dt = parseInputLocalToDate(productFormData.order_deadline);
+      if (dt && !isNaN(dt.getTime())) {
+        parsedDeadline = dt.toISOString();
+      }
+    }
+
     const payload = {
       name: productFormData.name,
       description: productFormData.description,
@@ -350,7 +324,7 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: productFormData.image_front_url || '/assets/images/arch_shirt_front.jpg',
       image_back_url: productFormData.image_back_url || '',
       is_active: Boolean(productFormData.is_active),
-      order_deadline: productFormData.order_deadline ? new Date(productFormData.order_deadline).toISOString() : null
+      order_deadline: parsedDeadline
     };
 
     setLoading(true);
@@ -707,14 +681,10 @@ export default function AdminView({ onBackToStore }) {
                                 <img src={order.payment_slip_url} alt="Slip" className="w-9 h-9 object-cover rounded shadow-xs" />
                                 <span className="text-[9px] text-zinc-500 mt-0.5">ตรวจสลิป</span>
                               </button>
-                            ) : order.payment_method === 'cash' ? (
-                              <div className="inline-flex flex-col items-center px-2 py-1 bg-amber-50 border border-amber-200 rounded-lg" title="ชำระเงินสดตอนรับเสื้อ">
-                                <span className="text-sm">💵</span>
-                                <span className="text-[9px] font-bold text-amber-800 font-mono">เงินสด</span>
-                              </div>
                             ) : (
                               <span className="text-zinc-400 font-mono text-[11px]">- ไม่มีสลิป -</span>
                             )}
+
                           </td>
 
                           {/* 6. Current Status Badge */}
@@ -1595,106 +1565,12 @@ export default function AdminView({ onBackToStore }) {
       {/* ==================================================== */}
       {/* MODAL 5: COUNTDOWN DEADLINE SETTINGS */}
       {/* ==================================================== */}
-      {isDeadlineModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl border border-zinc-200 overflow-hidden">
-            
-            <div className="px-6 py-4 bg-zinc-900 text-white flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">⏱️</span>
-                <h3 className="font-bold text-sm">กำหนดวันและเวลาปิดรับสั่งจอง</h3>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setIsDeadlineModalOpen(false)} 
-                className="text-zinc-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-
-            <form onSubmit={handleSaveDeadline} className="p-6 space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="block font-bold text-zinc-800">
-                  เลือกวันและเวลาปิดรับจอง (Target Date & Time):
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={deadlineInput}
-                  onChange={(e) => setDeadlineInput(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-300 rounded-xl font-mono text-xs focus:bg-white focus:border-zinc-900"
-                />
-              </div>
-
-              {/* Quick Presets */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-[11px] font-mono text-zinc-500">เลือกตั้งค่าด่วน (Quick Presets):</label>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-                      const pad = (n) => String(n).padStart(2, '0');
-                      setDeadlineInput(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T23:59`);
-                    }}
-                    className="py-2 bg-zinc-100 hover:bg-zinc-200 rounded-lg text-zinc-800 font-medium text-[11px] transition-all"
-                  >
-                    +7 วัน (23:59)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
-                      const pad = (n) => String(n).padStart(2, '0');
-                      setDeadlineInput(`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T23:59`);
-                    }}
-                    className="py-2 bg-zinc-100 hover:bg-zinc-200 rounded-lg text-zinc-800 font-medium text-[11px] transition-all"
-                  >
-                    +14 วัน (23:59)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const now = new Date();
-                      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                      const pad = (n) => String(n).padStart(2, '0');
-                      setDeadlineInput(`${lastDay.getFullYear()}-${pad(lastDay.getMonth()+1)}-${pad(lastDay.getDate())}T23:59`);
-                    }}
-                    className="py-2 bg-zinc-100 hover:bg-zinc-200 rounded-lg text-zinc-800 font-medium text-[11px] transition-all"
-                  >
-                    สิ้นเดือนนี้
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] space-y-1">
-                <div className="font-bold">⚡ ระบบนับถอยหลังตามเวลาจริง (Real-Time):</div>
-                <p className="leading-relaxed">
-                  เมื่อกดบันทึก ตัวเลขนับถอยหลัง (วัน : ชั่วโมง : นาที : วินาที) ที่หน้าแรกจะนับถอยหลังไปยังเวลาที่คุณกำหนดแบบวินาทีต่อวินาทีโดยอัตโนมัติ
-                </p>
-              </div>
-
-              <div className="pt-3 border-t flex gap-2">
-                <button
-                  type="submit"
-                  className="flex-1 py-3 bg-zinc-900 hover:bg-black text-white font-bold rounded-xl text-xs shadow-md transition-all"
-                >
-                  💾 บันทึกเวลาปิดรับจอง
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsDeadlineModalOpen(false)}
-                  className="px-5 py-3 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 font-bold rounded-xl text-xs"
-                >
-                  ยกเลิก
-                </button>
-              </div>
-            </form>
-
-          </div>
-        </div>
-      )}
+      <DeadlineModal
+        isOpen={isDeadlineModalOpen}
+        onClose={() => setIsDeadlineModalOpen(false)}
+        products={products}
+        onDeadlineSaved={() => fetchData()}
+      />
 
     </div>
   );

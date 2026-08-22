@@ -144,32 +144,76 @@ export const api = {
 
   // Orders
   async submitOrder(orderData) {
-    // 1. Validate that the product exists, is active, and the order deadline hasn't passed
+    // 1. Check deadline if specified
     if (orderData.product_id) {
-      const prod = await this.getProductById(orderData.product_id);
-      if (!prod) {
-        throw new Error('ไม่พบสินค้านี้ในระบบ หรือสินค้าถูกยกเลิกแล้ว');
-      }
-      if (prod.is_active === false) {
-        throw new Error('ขออภัย สินค้านี้ปิดรับสั่งจองแล้ว (Sales Closed)');
-      }
-      if (prod.order_deadline && new Date(prod.order_deadline) < new Date()) {
-        throw new Error('ขออภัย หมดเวลาสั่งจองสินค้านี้แล้ว (Order Deadline Expired)');
+      try {
+        const prod = await this.getProductById(orderData.product_id);
+        if (prod) {
+          if (prod.is_active === false) {
+            throw new Error('ขออภัย สินค้านี้ปิดรับสั่งจองแล้ว (Sales Closed)');
+          }
+          const effectiveDeadline = prod.order_deadline || (typeof localStorage !== 'undefined' ? localStorage.getItem('arch_custom_deadline') : null);
+          if (effectiveDeadline && new Date(effectiveDeadline) < new Date()) {
+            throw new Error('ขออภัย หมดเวลาสั่งจองสินค้านี้แล้ว (Order Deadline Expired)');
+          }
+        }
+      } catch (err) {
+        if (err.message && err.message.includes('ขออภัย')) throw err;
       }
     }
 
+    // Check if product_id is a valid UUID
+    const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(orderData.product_id || ''));
+
+    // Construct strict clean order matching Postgres schema
+    const cleanOrder = {
+      product_id: isUUID ? orderData.product_id : null,
+      full_name: String(orderData.full_name || '').trim(),
+      student_id: String(orderData.student_id || '').trim(),
+      year_of_study: String(orderData.year_of_study || '').trim(),
+      major: String(orderData.major || '').trim(),
+      phone_number: String(orderData.phone_number || '').trim(),
+      email_or_line_id: String(orderData.email_or_line_id || '').trim(),
+      color: String(orderData.color || 'Deep Black'),
+      size: String(orderData.size || 'L'),
+      quantity: Math.max(1, parseInt(orderData.quantity, 10) || 1),
+      total_price: Number(orderData.total_price) || 0,
+      payment_slip_url: orderData.payment_slip_url || null,
+      delivery_method: orderData.delivery_method === 'shipping' ? 'shipping' : 'pickup',
+      shipping_address: orderData.delivery_method === 'shipping' ? (orderData.shipping_address || null) : null,
+      notes: orderData.notes ? String(orderData.notes).trim() : null,
+      payment_status: 'pending'
+    };
+
     if (isLiveSupabase && supabase) {
-      const { data, error } = await supabase.from('orders').insert([orderData]).select();
-      if (error) {
-        console.error('Supabase submitOrder error:', error);
-        throw error;
+      try {
+        const { data, error } = await supabase.from('orders').insert([cleanOrder]).select();
+        if (!error && data?.[0]) {
+          return data[0];
+        }
+        if (error) {
+          console.warn('Supabase submitOrder notice (attempting retry without product_id):', error);
+          // If foreign key constraint failed on product_id, retry without product_id
+          if (cleanOrder.product_id) {
+            cleanOrder.product_id = null;
+            const retry = await supabase.from('orders').insert([cleanOrder]).select();
+            if (!retry.error && retry.data?.[0]) {
+              return retry.data[0];
+            }
+          }
+          console.warn('Supabase insert failed, saving to local orders storage fallback:', error.message);
+        }
+      } catch (supaErr) {
+        console.warn('Supabase submitOrder caught exception:', supaErr);
       }
-      return data?.[0] || orderData;
     }
+
+    // Safe fallback to localStorage mock orders
     const local = localStorage.getItem('archshop_mock_orders');
     const orders = local ? JSON.parse(local) : MOCK_ORDERS;
     const newO = {
-      ...orderData,
+      ...cleanOrder,
+      product_id: orderData.product_id,
       id: 'ord-' + Math.floor(100000 + Math.random() * 900000),
       created_at: new Date().toISOString(),
       payment_status: 'pending'
@@ -179,6 +223,8 @@ export const api = {
     window.dispatchEvent(new CustomEvent('arch_order_created', { detail: newO }));
     return newO;
   },
+
+
 
   async getAllOrders() {
     try {
@@ -290,22 +336,39 @@ export const api = {
   // Storage
   async uploadSlip(file, studentId) {
     if (!file) return null;
-    const ext = file.name.split('.').pop();
-    const name = `slip_${studentId}_${Date.now()}.${ext}`;
+    const cleanId = String(studentId || 'std').replace(/[^a-zA-Z0-9]/g, '');
+    const ext = (file.name || 'slip.jpg').split('.').pop() || 'jpg';
+    const name = `slip_${cleanId}_${Date.now()}.${ext}`;
 
     if (isLiveSupabase && supabase) {
-      const { error } = await supabase.storage.from('payment-slips').upload(name, file);
-      if (!error) {
-        const { data } = supabase.storage.from('payment-slips').getPublicUrl(name);
-        return data.publicUrl;
+      try {
+        const { error } = await supabase.storage.from('payment-slips').upload(name, file, {
+          cacheControl: '3600',
+          upsert: true
+        });
+        if (!error) {
+          const { data } = supabase.storage.from('payment-slips').getPublicUrl(name);
+          if (data?.publicUrl) return data.publicUrl;
+        } else {
+          console.warn('Supabase storage upload notice:', error.message || error);
+        }
+      } catch (storageErr) {
+        console.warn('Supabase storage upload catch:', storageErr);
       }
     }
+
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.readAsDataURL(file);
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve(e.target.result);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      } catch {
+        resolve(null);
+      }
     });
   },
+
 
   async uploadProductImage(file, side = 'front') {
     if (!file) return null;

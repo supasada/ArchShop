@@ -1,8 +1,10 @@
 import React from 'react';
 import { useLanguage } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext';
 
-export default function Navbar({ onOpenTracking, onToggleAdmin, isAdminView }) {
+export default function Navbar({ onOpenTracking, onOpenCart, onToggleAdmin, isAdminView }) {
   const { lang, setLanguage, t } = useLanguage();
+  const { totalItems } = useCart();
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-zinc-200 shadow-xs">
@@ -67,6 +69,25 @@ export default function Navbar({ onOpenTracking, onToggleAdmin, isAdminView }) {
             </button>
           </div>
 
+          {/* Shopping Cart Button */}
+          {!isAdminView && (
+            <button
+              type="button"
+              onClick={onOpenCart}
+              className="relative inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 text-xs font-bold text-zinc-900 bg-white hover:bg-zinc-100 rounded-xl transition-all border border-zinc-300 shadow-xs active:scale-95 shrink-0"
+              title={t.cartTitle || 'Shopping Cart'}
+            >
+              <span className="text-sm sm:text-base">🛒</span>
+              <span className="hidden sm:inline font-mono">{t.cartNavBtn || 'ตะกร้า'}</span>
+              {totalItems > 0 && (
+                <span className="px-1.5 py-0.2 min-w-[18px] sm:min-w-[20px] h-[18px] sm:h-[20px] rounded-full bg-amber-500 text-zinc-950 font-mono font-black text-[10px] sm:text-[11px] flex items-center justify-center shadow-xs animate-pulse">
+                  {totalItems}
+                </span>
+              )}
+            </button>
+          )}
+
+
           {/* Track Order Button */}
           {!isAdminView && (
             <>
@@ -74,18 +95,18 @@ export default function Navbar({ onOpenTracking, onToggleAdmin, isAdminView }) {
               <button
                 type="button"
                 onClick={onOpenTracking}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-700 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors border border-zinc-200"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-zinc-700 hover:text-zinc-900 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors border border-zinc-200"
                 title={t.trackOrder}
               >
                 <span>📦</span>
                 <span>{t.trackOrder}</span>
               </button>
 
-              {/* Mobile icon button */}
+              {/* Mobile/Tablet icon button */}
               <button
                 type="button"
                 onClick={onOpenTracking}
-                className="inline-flex sm:hidden items-center justify-center w-8 h-8 text-xs font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors border border-zinc-200"
+                className="inline-flex md:hidden items-center justify-center w-8 h-8 text-xs font-bold text-zinc-700 bg-zinc-100 hover:bg-zinc-200 rounded-lg transition-colors border border-zinc-200"
                 title={t.trackOrder}
               >
                 <span>📦</span>
@@ -107,3 +128,4 @@ export default function Navbar({ onOpenTracking, onToggleAdmin, isAdminView }) {
     </header>
   );
 }
+
