@@ -2,17 +2,15 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { formatDateThai } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
-import DeadlineModal from './DeadlineModal';
 
 export default function HeroBanner({ products }) {
   const { t, lang } = useLanguage();
   const [timeLeft, setTimeLeft] = useState(null);
   const [targetDate, setTargetDate] = useState(null);
-  const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
 
   // Compute the active target date
   const computeTarget = useCallback(() => {
-    // 1. Check if user configured a global deadline in localStorage
+    // 1. Check if configured in localStorage
     const savedDeadline = localStorage.getItem('arch_custom_deadline');
     if (savedDeadline) {
       const d = new Date(savedDeadline);
@@ -39,67 +37,64 @@ export default function HeroBanner({ products }) {
     return new Date(STORE_CONFIG.faculty.defaultDeadline || '2026-08-31T23:59:59');
   }, [products]);
 
-  // Initialize or re-sync target date when products change
   useEffect(() => {
     const target = computeTarget();
     setTargetDate(target);
   }, [computeTarget]);
 
-  // Listen to global deadline update events
+  // Listen for storage events (e.g. when admin changes deadline in Admin Panel)
   useEffect(() => {
-    const handleDeadlineUpdate = (e) => {
-      if (e.detail) {
-        const newTarget = new Date(e.detail);
-        if (!isNaN(newTarget.getTime())) {
-          setTargetDate(newTarget);
-        }
+    const handleStorage = (e) => {
+      if (e.key === 'arch_custom_deadline') {
+        const target = computeTarget();
+        setTargetDate(target);
       }
     };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [computeTarget]);
 
-    window.addEventListener('arch_deadline_updated', handleDeadlineUpdate);
-    return () => {
-      window.removeEventListener('arch_deadline_updated', handleDeadlineUpdate);
-    };
-  }, []);
-
-  // Real-time countdown timer tick
+  // Update countdown timer every second
   useEffect(() => {
     if (!targetDate) return;
 
-    const updateCountdown = () => {
-      const now = Date.now();
-      const targetTime = targetDate.getTime();
-      const distance = targetTime - now;
-
-      if (distance <= 0) {
+    const calculateTimeLeft = () => {
+      const difference = targetDate.getTime() - new Date().getTime();
+      if (difference <= 0) {
         setTimeLeft(null);
         return;
       }
 
-      setTimeLeft({
-        days: Math.floor(distance / (1000 * 60 * 60 * 24)),
-        hours: Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
-        minutes: Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((distance % (1000 * 60)) / 1000)
-      });
+      const days = Math.floor(difference / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
+
+      setTimeLeft({ days, hours, minutes, seconds });
     };
 
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-
-    return () => clearInterval(interval);
+    calculateTimeLeft();
+    const timer = setInterval(calculateTimeLeft, 1000);
+    return () => clearInterval(timer);
   }, [targetDate]);
 
-  const formattedDate = targetDate ? (
-    lang === 'en' 
-      ? targetDate.toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
-      : lang === 'zh'
-      ? targetDate.toLocaleString('zh-CN', { dateStyle: 'medium', timeStyle: 'short' })
-      : formatDateThai(targetDate, true)
-  ) : '';
+  const formattedDate = targetDate && !isNaN(targetDate.getTime()) 
+    ? (lang === 'th' 
+        ? formatDateThai(targetDate.toISOString()) 
+        : targetDate.toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: false
+          }))
+    : null;
 
   return (
-    <section className="relative bg-blueprint border-b border-zinc-200 overflow-hidden pt-8 pb-12 sm:pt-12 sm:pb-16 lg:py-20">
+    <section className="relative overflow-hidden bg-white border-b border-zinc-200 py-12 sm:py-16 md:py-20">
+      <div className="absolute inset-0 opacity-40 mix-blend-multiply pointer-events-none bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px]"></div>
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         <div className="max-w-3xl">
           
@@ -132,17 +127,6 @@ export default function HeroBanner({ products }) {
               <h3 className="text-base sm:text-xl font-bold tracking-tight">
                 {t.countdownTitle}
               </h3>
-
-              {/* Direct Quick Button to Edit Closing Time */}
-              <button
-                type="button"
-                onClick={() => setIsDeadlineModalOpen(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-400/20 hover:bg-amber-400/30 text-amber-300 hover:text-amber-200 border border-amber-400/40 rounded-lg text-xs font-mono font-bold transition-all active:scale-95 shadow-xs"
-                title="คลิกเพื่อเปลี่ยนวันและเวลาปิดรับจอง"
-              >
-                <span>⏱️ ตั้งเวลาปิดรับจอง</span>
-                <span className="text-[10px] opacity-75">✏️</span>
-              </button>
             </div>
 
             <p className="text-xs text-amber-400/90 font-mono flex items-center gap-1.5 flex-wrap">
@@ -171,32 +155,14 @@ export default function HeroBanner({ products }) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-2">
-                <div className="px-4 py-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
-                  <span>{t.closedNotice}</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsDeadlineModalOpen(true)}
-                  className="px-3 py-3 bg-amber-400 text-zinc-950 hover:bg-amber-300 font-bold text-xs rounded-xl shadow transition-all whitespace-nowrap"
-                  title="เปิดรับจองใหม่"
-                >
-                  ⚡ เปิดรับจองใหม่
-                </button>
+              <div className="px-4 py-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
+                <span>{t.closedNotice}</span>
               </div>
             )}
           </div>
         </div>
 
       </div>
-
-      {/* Deadline Setting Modal */}
-      <DeadlineModal
-        isOpen={isDeadlineModalOpen}
-        onClose={() => setIsDeadlineModalOpen(false)}
-        products={products}
-        onDeadlineSaved={(iso) => setTargetDate(new Date(iso))}
-      />
     </section>
   );
 }
