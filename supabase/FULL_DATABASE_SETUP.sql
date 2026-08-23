@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
     size TEXT NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1 CHECK (quantity > 0),
     total_price NUMERIC(10, 2) NOT NULL CHECK (total_price >= 0),
+    payment_method TEXT DEFAULT 'transfer',
     payment_slip_url TEXT,
     delivery_method TEXT NOT NULL DEFAULT 'pickup' CHECK (delivery_method IN ('pickup', 'shipping')),
     shipping_address TEXT,

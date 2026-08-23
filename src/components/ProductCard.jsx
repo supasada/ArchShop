@@ -10,16 +10,19 @@ export default function ProductCard({ product, onOrderClick }) {
   const backImg = product.image_back_url || frontImg;
   const sizes = Array.isArray(product.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL'];
   
-  const formattedDeadline = product.order_deadline ? (
+  const effectiveDeadline = product.order_deadline || localStorage.getItem('arch_custom_deadline');
+
+  const formattedDeadline = effectiveDeadline ? (
     lang === 'en' 
-      ? new Date(product.order_deadline).toLocaleDateString('en-US')
+      ? new Date(effectiveDeadline).toLocaleDateString('en-US')
       : lang === 'zh'
-      ? new Date(product.order_deadline).toLocaleDateString('zh-CN')
-      : formatDateThai(product.order_deadline)
+      ? new Date(effectiveDeadline).toLocaleDateString('zh-CN')
+      : formatDateThai(effectiveDeadline)
   ) : '-';
 
-  const isExpired = Boolean(product.order_deadline && new Date(product.order_deadline) < new Date());
+  const isExpired = Boolean(effectiveDeadline && new Date(effectiveDeadline) < new Date());
   const isClosed = product.is_active === false || isExpired;
+
 
   return (
     <div className="arch-card-interactive bg-white rounded-2xl overflow-hidden flex flex-col group border border-zinc-200">
@@ -46,6 +49,12 @@ export default function ProductCard({ product, onOrderClick }) {
         <div className="absolute top-3 left-3 bg-zinc-900 text-white font-mono text-xs font-bold px-3 py-1.5 rounded-lg shadow">
           {formatCurrency(product.price)}
         </div>
+
+        {!isClosed && (
+          <div className="absolute top-3 right-3 bg-amber-500 text-zinc-950 font-mono text-[10.5px] font-black px-2.5 py-1 rounded-lg shadow-sm border border-amber-400">
+            2 ตัว 399.-
+          </div>
+        )}
 
         {isClosed && (
           <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center p-4 text-center">
@@ -93,10 +102,12 @@ export default function ProductCard({ product, onOrderClick }) {
                 : 'bg-zinc-900 hover:bg-black text-white hover:shadow-md active:scale-[0.99]'
             }`}
           >
-            <span>{isClosed ? '🔴 ปิดรับจองแล้ว (Closed)' : t.orderNowBtn}</span>
+            <span>🛒</span>
+            <span>{isClosed ? '🔴 ปิดรับจองแล้ว (Closed)' : (t.addToCartBtn || 'เลือกไซส์ & เพิ่มลงตะกร้า')}</span>
           </button>
         </div>
       </div>
+
 
     </div>
   );

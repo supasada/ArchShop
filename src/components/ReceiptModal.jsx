@@ -6,7 +6,7 @@ export default function ReceiptModal({ order, product, onClose }) {
   if (!order) return null;
 
   const prodName = product?.name || order.products?.name || order.product_name || 'เสื้อสโมสรนักศึกษา 2026';
-  const unitPrice = product?.price || (order.quantity > 0 ? (order.total_price / order.quantity) : 350);
+  const unitPrice = product?.price || (order.quantity > 0 ? (order.total_price / order.quantity) : 219);
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
@@ -80,31 +80,75 @@ export default function ReceiptModal({ order, product, onClose }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              <tr>
-                <td className="py-1.5 font-bold text-zinc-900 truncate max-w-[140px]">
-                  {prodName}
-                </td>
-                <td className="py-1.5 text-center font-bold">
-                  {order.size} {order.color ? `(${order.color})` : ''}
-                </td>
-                <td className="py-1.5 text-center">
-                  {order.quantity} ตัว
-                </td>
-                <td className="py-1.5 text-right font-bold">
-                  {formatCurrency(unitPrice * order.quantity)}
-                </td>
-              </tr>
+              {Array.isArray(order.items) && order.items.length > 0 ? (
+                order.items.map((item, idx) => (
+                  <tr key={item.cartId || idx}>
+                    <td className="py-1.5 font-bold text-zinc-900 truncate max-w-[140px]">
+                      {item.productName || prodName}
+                    </td>
+                    <td className="py-1.5 text-center font-bold">
+                      {item.size} {item.color ? `(${item.color})` : ''}
+                    </td>
+                    <td className="py-1.5 text-center">
+                      {item.quantity} ตัว
+                    </td>
+                    <td className="py-1.5 text-right font-bold">
+                      {formatCurrency((Number(item.price) || unitPrice) * (Number(item.quantity) || 1))}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td className="py-1.5 font-bold text-zinc-900 truncate max-w-[140px]">
+                    {prodName}
+                  </td>
+                  <td className="py-1.5 text-center font-bold">
+                    {order.size} {order.color ? `(${order.color})` : ''}
+                  </td>
+                  <td className="py-1.5 text-center">
+                    {order.quantity} ตัว
+                  </td>
+                  <td className="py-1.5 text-right font-bold">
+                    {formatCurrency(unitPrice * (Number(order.quantity) || 1))}
+                  </td>
+                </tr>
+              )}
               {order.delivery_method === 'shipping' && (
                 <tr>
                   <td colSpan="3" className="py-1 text-zinc-500">
-                    ค่าจัดส่งพัสดุ
+                    ค่าบริการจัดส่งพัสดุ
                   </td>
                   <td className="py-1 text-right font-bold">
                     {formatCurrency(STORE_CONFIG.faculty.shippingFee)}
                   </td>
                 </tr>
               )}
+              {(() => {
+                let rawSum = 0;
+                if (Array.isArray(order.items) && order.items.length > 0) {
+                  rawSum = order.items.reduce((s, it) => s + (Number(it.price) || unitPrice) * (Number(it.quantity) || 1), 0);
+                } else {
+                  rawSum = unitPrice * (Number(order.quantity) || 1);
+                }
+                const shipping = order.delivery_method === 'shipping' ? STORE_CONFIG.faculty.shippingFee : 0;
+                const discountAmount = Math.max(0, (rawSum + shipping) - Number(order.total_price || 0));
+                
+                if (discountAmount > 0) {
+                  return (
+                    <tr>
+                      <td colSpan="3" className="py-1 text-emerald-600 font-bold">
+                        ⚡ ส่วนลดโปรโมชั่น (2 ตัว 399.-)
+                      </td>
+                      <td className="py-1 text-right font-bold text-emerald-600">
+                        -{formatCurrency(discountAmount)}
+                      </td>
+                    </tr>
+                  );
+                }
+                return null;
+              })()}
             </tbody>
+
             <tfoot>
               <tr className="border-t-2 border-zinc-900 font-bold text-[11px]">
                 <td colSpan="3" className="py-1.5 text-zinc-900">ยอดชำระสุทธิ (Grand Total):</td>
@@ -123,22 +167,22 @@ export default function ReceiptModal({ order, product, onClose }) {
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-zinc-200">
               <span className="text-zinc-500">ช่องทางชำระเงิน:</span>
-              <span className="font-bold text-zinc-900">
-                {order.payment_method === 'cash' ? '💵 เงินสดตอนรับเสื้อ (Cash)' : '💳 โอนเงิน / QR Code (Transfer)'}
-              </span>
+              <span className="font-bold text-zinc-900">💳 โอนเงินผ่าน PromptPay QR</span>
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-zinc-200">
               <span className="text-zinc-500">สถานะชำระเงิน:</span>
               <span className={`font-bold px-1.5 py-0.2 rounded text-[9px] ${
                 order.payment_status === 'confirmed' 
                   ? 'bg-emerald-100 text-emerald-800' 
-                  : (order.payment_method === 'cash' ? 'bg-amber-100 text-amber-800' : 'bg-amber-100 text-amber-800')
+                  : 'bg-amber-100 text-amber-800'
               }`}>
                 {order.payment_status === 'confirmed' 
                   ? '✓ ชำระเงินเรียบร้อย (PAID)' 
-                  : (order.payment_method === 'cash' ? '⏳ รอชำระเงินสดตอนรับเสื้อ' : '⏳ รอตรวจสอบสลิป')}
+                  : '⏳ รอตรวจสอบสลิป'}
               </span>
             </div>
+
+
           </div>
 
           {/* Signatures */}

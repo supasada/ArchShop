@@ -17,6 +17,15 @@ export const STORE_CONFIG = {
     defaultDeadline: '2026-08-31T23:59:59'
   },
 
+  promotion: {
+    enabled: true,
+    bundleQty: 2,
+    bundlePrice: 399,
+    descriptionTh: 'ซื้อ 2 ตัว เหลือเพียง 399 บาท',
+    descriptionEn: 'Buy 2 shirts for only 399 THB',
+    descriptionZh: '买2件短袖仅需 399 泰铢'
+  },
+
   payment: {
     promptpayNumber: '147-8-13511-0',
     promptpayName: 'นางสาว พลินีย์ เพิ่มทวี',
@@ -27,23 +36,49 @@ export const STORE_CONFIG = {
   },
 
   undergraduateMajors: [
-    'สถบ.5 ปี สถาปัตยกรรม',
-    'ภสถ.บ. 5 ปี ภูมิสถาปัตยกรรม',
-    'วท.บ. 4 ปี สาขาสถาปัตยกรรม',
-    'วท.บ. 4 ปี ออกแบบอุตสาหกรรม',
-    'IDEA 4 หลักสูตรนานาชาติ'
+    'B.Arch.',
+    'B.Interior',
+    'B.L.A.',
+    'B.S. (Architecture)',
+    'BS. (Industrial Design)',
+    'IDEA 4 YEAR (International)'
   ],
 
   graduateMajors: [
-    'สถ.ม.',
-    'สถ.ม. (นานาชาติ)',
-    'วท.ม. (สถาปัตยกรรม)',
-    'ผ.ม. (บูรณาการผังเมืองและชนบท)',
-    'ปร.ด. (นานาชาติ)'
+    'M.Arch',
+    'JOINT DEGREE (International)',
+    'M.S. (Architecture)',
+    'M.U.R.P. (Urban And Rural Integrative Planning)',
+    'Ph.D. (International)'
+  ],
+
+  otherMajors: [
+    'ศิษย์เก่าคณะสถาปัตย์ (Arch Alumni)',
+    'นักศึกษาต่างคณะ มช. (Other CMU Faculty)',
+    'นักศึกษาต่างมหาวิทยาลัย (Other University)',
+    'อาจารย์ / บุคลากร (Faculty Staff)',
+    'บุคคลภายนอกทั่วไป (General Public)'
   ],
 
   majors: [
+    'B.Arch.',
+    'B.Interior',
+    'B.L.A.',
+    'B.S. (Architecture)',
+    'BS. (Industrial Design)',
+    'IDEA 4 YEAR (International)',
+    'M.Arch',
+    'JOINT DEGREE (International)',
+    'M.S. (Architecture)',
+    'M.U.R.P. (Urban And Rural Integrative Planning)',
+    'Ph.D. (International)',
+    'ศิษย์เก่าคณะสถาปัตย์ (Arch Alumni)',
+    'นักศึกษาต่างคณะ มช. (Other CMU Faculty)',
+    'นักศึกษาต่างมหาวิทยาลัย (Other University)',
+    'อาจารย์ / บุคลากร (Faculty Staff)',
+    'บุคคลภายนอกทั่วไป (General Public)',
     'สถบ.5 ปี สถาปัตยกรรม',
+    'สถ.บ. สถาปัตยกรรมภายใน',
     'ภสถ.บ. 5 ปี ภูมิสถาปัตยกรรม',
     'วท.บ. 4 ปี สาขาสถาปัตยกรรม',
     'วท.บ. 4 ปี ออกแบบอุตสาหกรรม',
@@ -61,8 +96,12 @@ export const STORE_CONFIG = {
     'ปี 3 (Junior)',
     'ปี 4 (Senior)',
     'ปี 5 (Thesis Year)',
-    'ปริญญาโท / เอก (Graduate)',
-    'ศิษย์เก่า / บุคลากร (Alumni / Staff)'
+    'ปริญญาโท / เอก (Postgraduate)',
+    'ศิษย์เก่าคณะสถาปัตย์ (Alumni)',
+    'นักศึกษานอกคณะ (CMU Student - Other Faculty)',
+    'นักศึกษานอกมหาลัย (Non-CMU Student)',
+    'อาจารย์ / บุคลากร (Faculty / Staff)',
+    'บุคคลภายนอกทั่วไป (General Public)'
   ],
 
   sizeChart: [

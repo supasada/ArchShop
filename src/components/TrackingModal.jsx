@@ -146,7 +146,7 @@ export default function TrackingModal({ isOpen, onClose }) {
                               ? t.statusConfirmed 
                               : isRejected 
                                 ? t.statusRejected 
-                                : (order.payment_method === 'cash' ? '💵 รอชำระเงินสดตอนรับเสื้อ' : t.statusPending)}
+                                : t.statusPending}
                           </span>
                         </span>
                       </div>
@@ -186,10 +186,9 @@ export default function TrackingModal({ isOpen, onClose }) {
                     <div className="text-[11px] text-zinc-600 space-y-1 pt-1 border-t">
                       <div className="flex items-center gap-1.5">
                         <span className="text-zinc-500">การชำระเงิน:</span>
-                        <span className="font-bold text-zinc-800">
-                          {order.payment_method === 'cash' ? '💵 ชำระด้วยเงินสด (Cash on Pick-up)' : '💳 โอนเงิน / QR Code'}
-                        </span>
+                        <span className="font-bold text-zinc-800">💳 โอนเงิน / QR Code</span>
                       </div>
+
 
                       <div className="flex items-center gap-1.5">
                         <span className="text-zinc-500">{t.deliveryMethodLabel}</span>

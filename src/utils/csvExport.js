@@ -63,7 +63,9 @@ export function exportOrdersToCSV(orders, products = []) {
 
   const rows = orders.map((o) => {
     const prod = o.products || products.find(p => p.id === o.product_id) || {};
-    const payMethodText = o.payment_method === 'cash' ? 'เงินสด (Cash)' : 'โอนเงิน/QR (Transfer)';
+    const payMethodText = 'โอนเงิน/QR (PromptPay)';
+
+
     return [
       escapeExcelText(o.id),
       escapeExcelText(formatDateTime(o.created_at)),
