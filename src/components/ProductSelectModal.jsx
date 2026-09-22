@@ -1,19 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatCurrency } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
+import { api } from '../config/supabase';
+import VariantPicker from './VariantPicker';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
   const { t } = useLanguage();
   const { addToCart } = useCart();
 
-  const sizes = Array.isArray(product?.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL'];
-  const colors = Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black'];
+  const [quantity, setQuantity] = useState(1);
+  const [showBack, setShowBack] = useState(false);
+
+  const [variants, setVariants] = useState([]);
+  const [selectedVariant, setSelectedVariant] = useState(null);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    api.getVariants(product.id).then((list) => {
+      setVariants(list);
+      setSelectedVariant(list.find((v) => v.is_active) || null);
+    });
+  }, [product?.id]);
+
+  const sizes = Array.isArray(selectedVariant?.available_sizes)
+    ? selectedVariant.available_sizes
+    : (Array.isArray(product?.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL']);
+  const colors = Array.isArray(selectedVariant?.available_colors)
+    ? selectedVariant.available_colors
+    : (Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black']);
 
   const [size, setSize] = useState(sizes[0] || 'L');
   const [color, setColor] = useState(colors[0] || 'Deep Black');
-  const [quantity, setQuantity] = useState(1);
-  const [showBack, setShowBack] = useState(false);
 
   if (!product) return null;
 
@@ -21,7 +39,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const isExpired = Boolean(effectiveDeadline && new Date(effectiveDeadline) < new Date());
   const isClosed = product.is_active === false || isExpired;
 
-  const unitPrice = Number(product.price) || 219;
+  const unitPrice = Number(selectedVariant?.price ?? product.price) || 219;
   const promoPairs = Math.floor(quantity / 2);
   const remainingSingles = quantity % 2;
   const totalPrice = (promoPairs * 399) + (remainingSingles * unitPrice);
@@ -30,13 +48,13 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const handleAddToCart = () => {
     if (isClosed) return;
-    addToCart(product, size, color, quantity);
+    addToCart(product, size, color, quantity, selectedVariant);
     onClose();
   };
 
   const handleBuyNow = () => {
     if (isClosed) return;
-    addToCart(product, size, color, quantity);
+    addToCart(product, size, color, quantity, selectedVariant);
     onClose();
     if (onOpenCart) onOpenCart();
   };
@@ -70,12 +88,15 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
             {/* Image Box */}
             <div className="sm:col-span-5 relative aspect-square bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 shadow-xs">
               <img
-                src={showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg')}
+                src={
+                  selectedVariant?.images?.[0]?.image_url ||
+                  (showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg'))
+                }
                 alt={product.name}
                 className="w-full h-full object-cover transition-opacity duration-300"
                 onError={(e) => { e.target.src = '/assets/images/arch_shirt_front.jpg'; }}
               />
-              {product.image_back_url && (
+              {!selectedVariant && product.image_back_url && (
                 <button
                   type="button"
                   onClick={() => setShowBack(!showBack)}
@@ -117,7 +138,11 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
           {/* Selection Options */}
           <div className="space-y-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
-            
+
+            {variants.length > 0 && (
+              <VariantPicker variants={variants} selected={selectedVariant} onSelect={setSelectedVariant} />
+            )}
+
             {/* 1. Size */}
             <div>
               <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
