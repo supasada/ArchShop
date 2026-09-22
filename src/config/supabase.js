@@ -439,5 +439,181 @@ export const api = {
     const handler = (e) => onChange && onChange(e.detail);
     window.addEventListener('arch_products_updated', handler);
     return { unsubscribe: () => window.removeEventListener('arch_products_updated', handler) };
+  },
+
+  // Product Variants
+  async getVariants(productId) {
+    if (!productId) return [];
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('*, product_variant_images(*)')
+        .eq('product_id', productId)
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getVariants notice:', error);
+        return [];
+      }
+      return (data || []).map((v) => ({
+        ...v,
+        images: (v.product_variant_images || []).sort((a, b) => a.sort_order - b.sort_order)
+      }));
+    }
+    return [];
+  },
+
+  async createVariant(variantData) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('product_variants').insert([variantData]).select();
+      if (error) {
+        console.error('Supabase createVariant error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Variants require a live Supabase connection.');
+  },
+
+  async updateVariant(id, updates) {
+    const allowedCols = ['name', 'price', 'available_sizes', 'available_colors', 'stock_limit', 'is_active', 'sort_order'];
+    const cleanUpdates = {};
+    Object.keys(updates).forEach((key) => {
+      if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];
+    });
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('product_variants').update(cleanUpdates).eq('id', id).select();
+      if (error) {
+        console.error('Supabase updateVariant error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Variants require a live Supabase connection.');
+  },
+
+  async deleteVariant(id) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('product_variants').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Variants require a live Supabase connection.');
+  },
+
+  async addVariantImage(variantId, imageUrl, sortOrder = 0) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('product_variant_images')
+        .insert([{ variant_id: variantId, image_url: imageUrl, sort_order: sortOrder }])
+        .select();
+      if (error) throw error;
+      return data?.[0];
+    }
+    throw new Error('Variant images require a live Supabase connection.');
+  },
+
+  async deleteVariantImage(imageId) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('product_variant_images').delete().eq('id', imageId);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Variant images require a live Supabase connection.');
+  },
+
+  // Promotions
+  async getPromotions() {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('promotions')
+        .select('*, promotion_scope_variants(*), promotion_bundle_items(*)')
+        .order('priority', { ascending: true });
+      if (error) {
+        console.warn('Supabase getPromotions notice:', error);
+        return [];
+      }
+      return (data || []).map((p) => ({
+        ...p,
+        scope_variants: p.promotion_scope_variants || [],
+        bundle_items: p.promotion_bundle_items || []
+      }));
+    }
+    return [];
+  },
+
+  async createPromotion(promotionData) {
+    if (!isLiveSupabase || !supabase) throw new Error('Promotions require a live Supabase connection.');
+    const { scope_variant_ids, bundle_items, ...promoFields } = promotionData;
+    const { data, error } = await supabase.from('promotions').insert([promoFields]).select();
+    if (error) {
+      console.error('Supabase createPromotion error:', error);
+      throw error;
+    }
+    const promo = data?.[0];
+    if (Array.isArray(scope_variant_ids) && scope_variant_ids.length > 0) {
+      await supabase.from('promotion_scope_variants').insert(
+        scope_variant_ids.map((variantId) => ({ promotion_id: promo.id, variant_id: variantId }))
+      );
+    }
+    if (Array.isArray(bundle_items) && bundle_items.length > 0) {
+      await supabase.from('promotion_bundle_items').insert(
+        bundle_items.map((bi) => ({
+          promotion_id: promo.id,
+          variant_id: bi.variant_id || null,
+          product_id: bi.product_id || null,
+          required_qty: bi.required_qty || 1
+        }))
+      );
+    }
+    return promo;
+  },
+
+  async updatePromotion(id, updates) {
+    if (!isLiveSupabase || !supabase) throw new Error('Promotions require a live Supabase connection.');
+    const allowedCols = [
+      'name', 'type', 'is_active', 'priority', 'applies_to_all',
+      'quantity', 'bundle_price', 'discount_type', 'discount_value'
+    ];
+    const { scope_variant_ids, bundle_items, ...rest } = updates;
+    const cleanUpdates = {};
+    Object.keys(rest).forEach((key) => {
+      if (allowedCols.includes(key)) cleanUpdates[key] = rest[key];
+    });
+    const { data, error } = await supabase.from('promotions').update(cleanUpdates).eq('id', id).select();
+    if (error) {
+      console.error('Supabase updatePromotion error:', error);
+      throw error;
+    }
+    if (Array.isArray(scope_variant_ids)) {
+      await supabase.from('promotion_scope_variants').delete().eq('promotion_id', id);
+      if (scope_variant_ids.length > 0) {
+        await supabase.from('promotion_scope_variants').insert(
+          scope_variant_ids.map((variantId) => ({ promotion_id: id, variant_id: variantId }))
+        );
+      }
+    }
+    if (Array.isArray(bundle_items)) {
+      await supabase.from('promotion_bundle_items').delete().eq('promotion_id', id);
+      if (bundle_items.length > 0) {
+        await supabase.from('promotion_bundle_items').insert(
+          bundle_items.map((bi) => ({
+            promotion_id: id,
+            variant_id: bi.variant_id || null,
+            product_id: bi.product_id || null,
+            required_qty: bi.required_qty || 1
+          }))
+        );
+      }
+    }
+    return data?.[0];
+  },
+
+  async deletePromotion(id) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('promotions').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Promotions require a live Supabase connection.');
   }
 };
