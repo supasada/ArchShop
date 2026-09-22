@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
-import { formatCurrency, getPromptPayQRUrl, describePromotion } from '../utils/formatters';
+import { formatCurrency, getPromptPayQRUrl } from '../utils/formatters';
 import { api } from '../config/supabase';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
@@ -223,7 +223,7 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
                   </div>
                 </div>
                 <span className="px-2.5 py-1 bg-amber-500 text-zinc-950 text-[10.5px] font-mono font-black rounded-lg shrink-0 shadow-xs">
-                  {appliedPromotions[0] ? describePromotion(appliedPromotions[0]) : ''}
+                  {appliedPromotions[0] ? appliedPromotions[0].name : ''}
                 </span>
               </div>
             ) : totalItems === 1 ? (
