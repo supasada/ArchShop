@@ -4,6 +4,7 @@ import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocal
 import { exportOrdersToCSV } from '../utils/csvExport';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
+import VariantManager from '../components/admin/VariantManager';
 
 
 export default function AdminView({ onBackToStore }) {
@@ -1193,6 +1194,10 @@ export default function AdminView({ onBackToStore }) {
                   </label>
                 </div>
               </div>
+
+              {editingProduct?.id && (
+                <VariantManager productId={editingProduct.id} />
+              )}
 
               {/* Order Deadline */}
               <div className="p-3 bg-zinc-50 rounded-xl border space-y-1.5">
