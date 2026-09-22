@@ -43,6 +43,14 @@ export function parseInputLocalToDate(str) {
   return isNaN(fallback.getTime()) ? null : fallback;
 }
 
+export function describePromotion(promo) {
+  if (!promo) return '';
+  if (promo.type === 'quantity_break') {
+    return `⚡ ซื้อ ${promo.quantity} ตัว เหลือเพียง ${promo.bundle_price}.-`;
+  }
+  return `⚡ ${promo.name}`;
+}
+
 export function getPromptPayQRUrl(amount) {
   const number = (STORE_CONFIG.payment.promptpayNumber || '147-8-13511-0').replace(/[^0-9]/g, '');
   if (amount && amount > 0) {

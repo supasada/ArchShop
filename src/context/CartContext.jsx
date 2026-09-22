@@ -112,6 +112,7 @@ export function CartProvider({ children }) {
         subtotal,
         isPromoApplied,
         appliedPromotions,
+        promotions,
         toastMessage,
         setToastMessage
       }}

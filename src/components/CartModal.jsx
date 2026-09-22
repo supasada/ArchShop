@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
-import { formatCurrency, getPromptPayQRUrl } from '../utils/formatters';
+import { formatCurrency, getPromptPayQRUrl, describePromotion } from '../utils/formatters';
 import { api } from '../config/supabase';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
@@ -16,8 +16,8 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
     rawSubtotal,
     discount,
     isPromoApplied,
-    promoPairs,
-    totalItems 
+    appliedPromotions,
+    totalItems
   } = useCart();
 
   const [deliveryMethod, setDeliveryMethod] = useState('pickup');
@@ -216,21 +216,21 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
                 <div className="flex items-center gap-2.5 font-bold text-zinc-900 min-w-0">
                   <span className="text-xl shrink-0">🎉</span>
                   <div className="min-w-0">
-                    <div className="truncate">{t.promoAppliedBanner || 'ได้รับโปรโมชั่นพิเศษ: ซื้อ 2 ตัว 399.-'}</div>
+                    <div className="truncate">🎉 ได้รับโปรโมชั่นพิเศษ: {appliedPromotions.map((p) => p.name).join(', ')}</div>
                     <div className="text-[11px] text-zinc-600 font-mono font-normal">
-                      ({promoPairs} คู่ • {t.saveAmountLabel || 'ประหยัดไป'} <strong className="text-emerald-700 font-bold font-mono">{formatCurrency(discount)}</strong>)
+                      ({t.saveAmountLabel || 'ประหยัดไป'} <strong className="text-emerald-700 font-bold font-mono">{formatCurrency(discount)}</strong>)
                     </div>
                   </div>
                 </div>
                 <span className="px-2.5 py-1 bg-amber-500 text-zinc-950 text-[10.5px] font-mono font-black rounded-lg shrink-0 shadow-xs">
-                  2 FOR 399.-
+                  {appliedPromotions[0] ? describePromotion(appliedPromotions[0]) : ''}
                 </span>
               </div>
             ) : totalItems === 1 ? (
               <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-2xl flex items-center justify-between gap-2 text-xs text-amber-950">
                 <div className="flex items-center gap-2">
                   <span className="text-base">💡</span>
-                  <span className="font-medium text-[11.5px]">{t.promoHintBanner || 'ซื้อเพิ่มอีก 1 ตัว เพื่อรับสิทธิ์โปรโมชั่น 2 ตัวเพียง 399.-'}</span>
+                  <span className="font-medium text-[11.5px]">💡 เพิ่มสินค้าในตะกร้าเพื่อรับสิทธิ์โปรโมชั่น</span>
                 </div>
                 <button
                   type="button"
@@ -573,7 +573,7 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
                     <div className="flex justify-between items-center text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200/60">
                       <span className="flex items-center gap-1">
                         <span>⚡</span>
-                        <span>{t.promoDiscountLabel || 'ส่วนลดโปรโมชั่น (2 ตัว 399.-):'}</span>
+                        <span>ส่วนลดโปรโมชั่น ({appliedPromotions.map((p) => p.name).join(', ')}):</span>
                       </span>
                       <span>-{formatCurrency(discount)}</span>
                     </div>

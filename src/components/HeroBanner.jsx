@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
-import { formatDateThai } from '../utils/formatters';
+import { formatDateThai, describePromotion } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext';
 
 export default function HeroBanner({ products }) {
   const { t, lang } = useLanguage();
+  const { promotions } = useCart();
+  const activePromo = promotions.find((p) => p.is_active) || null;
   const [timeLeft, setTimeLeft] = useState(null);
   const [targetDate, setTargetDate] = useState(null);
 
@@ -103,9 +106,11 @@ export default function HeroBanner({ products }) {
               <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
               <span>{t.officialMerch}</span>
             </div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-zinc-950 rounded-md text-xs font-mono font-black shadow-sm animate-pulse">
-              <span>{t.promoTag || '⚡ PROMOTION: ซื้อ 2 ตัว เหลือเพียง 399.-'}</span>
-            </div>
+            {activePromo && (
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-zinc-950 rounded-md text-xs font-mono font-black shadow-sm animate-pulse">
+                <span>{describePromotion(activePromo)}</span>
+              </div>
+            )}
           </div>
 
           <h1 className="font-display font-extrabold text-2xl xs:text-3xl sm:text-5xl lg:text-6xl text-zinc-950 tracking-tight leading-[1.1]">

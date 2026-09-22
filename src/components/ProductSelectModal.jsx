@@ -3,11 +3,12 @@ import { formatCurrency } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../config/supabase';
+import { computePricing } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
   const { t } = useLanguage();
-  const { addToCart } = useCart();
+  const { addToCart, promotions } = useCart();
 
   const [quantity, setQuantity] = useState(1);
   const [showBack, setShowBack] = useState(false);
@@ -40,11 +41,10 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const isClosed = product.is_active === false || isExpired;
 
   const unitPrice = Number(selectedVariant?.price ?? product.price) || 219;
-  const promoPairs = Math.floor(quantity / 2);
-  const remainingSingles = quantity % 2;
-  const totalPrice = (promoPairs * 399) + (remainingSingles * unitPrice);
-  const regularPrice = unitPrice * quantity;
-  const savings = regularPrice - totalPrice;
+  const preview = computePricing([{ price: unitPrice, quantity }], promotions);
+  const totalPrice = preview.subtotal;
+  const regularPrice = preview.rawSubtotal;
+  const savings = preview.discount;
 
   const handleAddToCart = () => {
     if (isClosed) return;
@@ -229,13 +229,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
             </div>
             {savings > 0 && (
               <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-[11px] text-emerald-400 font-bold">
-                <span>🎉 {t.promoTag || 'โปรโมชั่น ซื้อ 2 ตัว เหลือเพียง 399.-'}</span>
+                <span>🎉 {preview.appliedPromotions.map((p) => p.name).join(', ')}</span>
                 <span>{t.saveAmountLabel || 'ประหยัดไป'} {formatCurrency(savings)}</span>
-              </div>
-            )}
-            {quantity === 1 && (
-              <div className="text-[10.5px] text-amber-300/90 pt-1 border-t border-zinc-800">
-                {t.promoHintBanner || '💡 ซื้อเพิ่มอีก 1 ตัว เพื่อรับสิทธิ์โปรโมชั่น 2 ตัวเพียง 399.-'}
               </div>
             )}
           </div>
