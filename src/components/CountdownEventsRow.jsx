@@ -32,7 +32,6 @@ function useTimeLeft(targetAt) {
 function CountdownEventCard({ event }) {
   const { t, lang } = useLanguage();
   const timeLeft = useTimeLeft(event.target_at);
-  if (!timeLeft) return null;
 
   const formattedDate = lang === 'th'
     ? formatDateThai(event.target_at)
@@ -44,7 +43,7 @@ function CountdownEventCard({ event }) {
     <div className="mt-4 p-4 sm:p-6 bg-zinc-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 border border-zinc-800">
       <div className="space-y-1 min-w-0">
         <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
-          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          <span className={`w-2 h-2 rounded-full ${timeLeft ? 'bg-rose-500 animate-pulse' : 'bg-zinc-600'}`}></span>
           <span>{t.eventCountdownTag || 'EVENT COUNTDOWN'}</span>
         </div>
         <h3 className="text-base sm:text-xl font-bold tracking-tight truncate">{event.title}</h3>
@@ -53,6 +52,11 @@ function CountdownEventCard({ event }) {
         </p>
       </div>
 
+      {!timeLeft ? (
+        <div className="w-full md:w-auto px-4 py-3 bg-rose-500/20 border border-rose-500/40 rounded-xl text-rose-300 font-bold text-xs sm:text-sm flex items-center justify-center gap-2">
+          <span>{t.eventExpiredNotice || '🔴 หมดเวลาแล้ว'}</span>
+        </div>
+      ) : (
       <div className="w-full md:w-auto font-mono">
         <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-3 max-w-sm sm:max-w-none">
           <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
@@ -73,6 +77,7 @@ function CountdownEventCard({ event }) {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }
