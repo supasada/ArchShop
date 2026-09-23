@@ -171,8 +171,6 @@ export const translations = {
 
     // Size Chart Modal
     sizeChartTitle: 'ตารางเทียบไซส์เสื้อยืด (T-SHIRT UNISEX SIZE CHART)',
-    sizeChartTableTab: '📊 ตารางขนาด (Table)',
-    sizeChartGraphicTab: '🖼️ แผนผังไซส์ (Graphic)',
     sizeChartTipTitle: 'คำแนะนำในการเลือกไซส์:',
     sizeChartTipDesc: 'ทรงเสื้อเป็นแบบ Unisex สำหรับผู้ชายและผู้หญิง หากต้องการสวมใส่แบบ Oversized แนะนำให้เผื่อไซส์ +1 ขนาดจากปกติ',
     sizeCol: 'ไซส์ (Size)',
@@ -367,8 +365,6 @@ export const translations = {
 
     // Size Chart Modal
     sizeChartTitle: 'T-Shirt Unisex Size Measurement Chart (Inches)',
-    sizeChartTableTab: '📊 Size Table',
-    sizeChartGraphicTab: '🖼️ Visual Chart',
     sizeChartTipTitle: 'Sizing Recommendation:',
     sizeChartTipDesc: 'Unisex fit for all. If you prefer a loose oversized streetwear look, we recommend choosing +1 size up.',
     sizeCol: 'Size',
@@ -563,8 +559,6 @@ export const translations = {
 
     // Size Chart Modal
     sizeChartTitle: 'T-Shirt Unisex 衣服尺码详细对照表 (SIZE CHART)',
-    sizeChartTableTab: '📊 尺码对照表',
-    sizeChartGraphicTab: '🖼️ 尺码示意图',
     sizeChartTipTitle: '选码建议：',
     sizeChartTipDesc: '衣服为男女同款 Unisex 版型。如需宽松 Oversized 街头风格，建议选大一码 (+1)。',
     sizeCol: '尺码 (Size)',
