@@ -17,15 +17,6 @@ export const STORE_CONFIG = {
     defaultDeadline: '2026-08-31T23:59:59'
   },
 
-  promotion: {
-    enabled: true,
-    bundleQty: 2,
-    bundlePrice: 399,
-    descriptionTh: 'ซื้อ 2 ตัว เหลือเพียง 399 บาท',
-    descriptionEn: 'Buy 2 shirts for only 399 THB',
-    descriptionZh: '买2件短袖仅需 399 泰铢'
-  },
-
   payment: {
     promptpayNumber: '147-8-13511-0',
     promptpayName: 'นางสาว พลินีย์ เพิ่มทวี',

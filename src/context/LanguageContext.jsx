@@ -23,10 +23,6 @@ export const translations = {
     viewCartBtn: 'ดูตะกร้า ↗',
     selectProductDetailsTitle: 'เลือกรายละเอียดสินค้า',
     itemSubtotalLabel: 'ยอดรวมสินค้ารายการนี้:',
-    promoTag: '⚡ PROMOTION: ซื้อ 2 ตัว เหลือเพียง 399.-',
-    promoAppliedBanner: '🎉 ได้รับโปรโมชั่นพิเศษ: ซื้อ 2 ตัว 399.-',
-    promoHintBanner: '💡 ซื้อเพิ่มอีก 1 ตัว เพื่อรับสิทธิ์โปรโมชั่น 2 ตัวเพียง 399.-',
-    promoDiscountLabel: 'ส่วนลดโปรโมชั่น (2 ตัว 399.-):',
     regularSubtotalLabel: 'ยอดรวมปกติ:',
     saveAmountLabel: 'ประหยัดไป',
 
@@ -223,10 +219,6 @@ export const translations = {
     viewCartBtn: 'View Cart ↗',
     selectProductDetailsTitle: 'Select Product Options',
     itemSubtotalLabel: 'Item Subtotal:',
-    promoTag: '⚡ PROMO: Buy 2 shirts for only 399 THB',
-    promoAppliedBanner: '🎉 Special Promo Applied: 2 for 399 THB',
-    promoHintBanner: '💡 Add 1 more shirt to get the 2 for 399 THB deal!',
-    promoDiscountLabel: 'Promo Discount (2 for 399.-):',
     regularSubtotalLabel: 'Regular Subtotal:',
     saveAmountLabel: 'Saved',
 
@@ -423,10 +415,6 @@ export const translations = {
     viewCartBtn: '查看购物车 ↗',
     selectProductDetailsTitle: '选择商品规格',
     itemSubtotalLabel: '本项商品小计：',
-    promoTag: '⚡ 特惠活动：买 2 件仅需 399 泰铢',
-    promoAppliedBanner: '🎉 已享特惠：买 2 件仅需 399 泰铢',
-    promoHintBanner: '💡 再加购 1 件即可享受 2件399 泰铢特惠！',
-    promoDiscountLabel: '特惠折扣 (买2件 399.-):',
     regularSubtotalLabel: '原价总计:',
     saveAmountLabel: '立省',
 
