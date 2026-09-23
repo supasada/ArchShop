@@ -11,7 +11,6 @@ export default function TrackingModal({ isOpen, onClose }) {
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [viewingReceiptOrder, setViewingReceiptOrder] = useState(null);
-  const [previewSlip, setPreviewSlip] = useState(null);
 
   if (!isOpen) return null;
 
@@ -215,17 +214,7 @@ export default function TrackingModal({ isOpen, onClose }) {
                     </div>
 
                     {/* Action Bar */}
-                    <div className="flex justify-between items-center pt-2 border-t gap-2">
-                      {order.payment_slip_url ? (
-                        <button
-                          type="button"
-                          onClick={() => setPreviewSlip(order.payment_slip_url)}
-                          className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg text-[11px] font-medium transition-all"
-                        >
-                          {t.viewSlipBtn}
-                        </button>
-                      ) : <span />}
-
+                    <div className="flex justify-end items-center pt-2 border-t gap-2">
                       <button
                         type="button"
                         onClick={() => setViewingReceiptOrder(order)}
@@ -243,28 +232,6 @@ export default function TrackingModal({ isOpen, onClose }) {
 
         </div>
       </div>
-
-      {/* Slip Preview Modal */}
-      {previewSlip && (
-        <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" onClick={() => setPreviewSlip(null)}>
-          <div className="bg-white max-w-sm w-full rounded-2xl overflow-hidden shadow-2xl p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-2">
-              <h4 className="font-bold text-xs text-zinc-900">{t.slipProofTitle}</h4>
-              <button type="button" onClick={() => setPreviewSlip(null)} className="text-zinc-400 hover:text-zinc-700 text-xs">✕</button>
-            </div>
-            <div className="max-h-96 overflow-auto rounded-lg bg-zinc-100 flex items-center justify-center">
-              <img src={previewSlip} alt="Payment Slip" className="w-full h-auto object-contain rounded-lg" />
-            </div>
-            <button
-              type="button"
-              onClick={() => setPreviewSlip(null)}
-              className="w-full py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-bold rounded-xl transition-all"
-            >
-              {t.closeBtn}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Printable Receipt Modal */}
       {viewingReceiptOrder && (
