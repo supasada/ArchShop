@@ -17,7 +17,20 @@ export default function VariantManager({ productId }) {
     setLoading(false);
   };
 
+  const reloadQuiet = async () => {
+    const data = await api.getVariants(productId);
+    setVariants(data);
+  };
+
   useEffect(() => { load(); }, [productId]);
+
+  useEffect(() => {
+    const subs = [
+      api.subscribeTable('product_variants', reloadQuiet),
+      api.subscribeTable('product_variant_images', reloadQuiet)
+    ];
+    return () => subs.forEach((s) => s.unsubscribe());
+  }, [productId]);
 
   const handleCreate = async () => {
     if (!form.name.trim() || !form.price) return;

@@ -16,7 +16,17 @@ export default function SizeChartManager() {
     setLoading(false);
   };
 
+  const reloadQuiet = async () => {
+    const data = await api.getSizeChart();
+    setRows(data);
+  };
+
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const sub = api.subscribeTable('size_chart', reloadQuiet);
+    return () => sub.unsubscribe();
+  }, []);
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };
 

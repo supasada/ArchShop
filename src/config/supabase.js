@@ -445,6 +445,31 @@ export const api = {
     return { unsubscribe: () => window.removeEventListener('arch_products_updated', handler) };
   },
 
+  // Generic realtime subscription for any table with realtime enabled
+  // (promotions, product_variants, product_variant_images, size_chart, ...).
+  subscribeTable(tableName, onChange) {
+    if (isLiveSupabase && supabase) {
+      const channelName = `realtime-${tableName}-${Math.random().toString(36).slice(2)}`;
+      const channel = supabase
+        .channel(channelName)
+        .on('postgres_changes', { event: '*', schema: 'public', table: tableName }, (payload) => {
+          if (onChange) onChange(payload);
+        })
+        .subscribe();
+
+      return {
+        unsubscribe: () => {
+          try {
+            supabase.removeChannel(channel);
+          } catch (e) {
+            console.warn('removeChannel error:', e);
+          }
+        }
+      };
+    }
+    return { unsubscribe: () => {} };
+  },
+
   // Product Variants
   async getVariants(productId) {
     if (!productId) return [];

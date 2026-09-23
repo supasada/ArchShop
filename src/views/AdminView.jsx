@@ -76,10 +76,16 @@ export default function AdminView({ onBackToStore }) {
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
   const [sizeChartOptions, setSizeChartOptions] = useState(['S', 'M', 'L', 'XL', '2XL', '3XL']);
 
-  useEffect(() => {
+  const reloadSizeChartOptions = () => {
     api.getSizeChart().then((rows) => {
       if (rows.length > 0) setSizeChartOptions(rows.map((r) => r.size));
     });
+  };
+
+  useEffect(() => {
+    reloadSizeChartOptions();
+    const sub = api.subscribeTable('size_chart', reloadSizeChartOptions);
+    return () => sub.unsubscribe();
   }, []);
 
 

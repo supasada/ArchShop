@@ -18,8 +18,18 @@ export function CartProvider({ children }) {
 
   const [promotions, setPromotions] = useState([]);
 
-  useEffect(() => {
+  const reloadPromotions = () => {
     api.getPromotions().then(setPromotions).catch(() => setPromotions([]));
+  };
+
+  useEffect(() => {
+    reloadPromotions();
+    const subs = [
+      api.subscribeTable('promotions', reloadPromotions),
+      api.subscribeTable('promotion_scope_variants', reloadPromotions),
+      api.subscribeTable('promotion_bundle_items', reloadPromotions)
+    ];
+    return () => subs.forEach((s) => s.unsubscribe());
   }, []);
 
   useEffect(() => {
