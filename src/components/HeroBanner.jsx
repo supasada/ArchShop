@@ -7,9 +7,24 @@ import { useCart } from '../context/CartContext';
 export default function HeroBanner({ products }) {
   const { t, lang } = useLanguage();
   const { promotions } = useCart();
-  const activePromo = promotions.find((p) => p.is_active) || null;
+  const activePromos = promotions.filter((p) => p.is_active);
+  const [promoIndex, setPromoIndex] = useState(0);
+  const activePromo = activePromos.length > 0 ? activePromos[promoIndex % activePromos.length] : null;
   const [timeLeft, setTimeLeft] = useState(null);
   const [targetDate, setTargetDate] = useState(null);
+
+  // Cycle through every active promotion instead of always showing only the first one
+  useEffect(() => {
+    setPromoIndex(0);
+  }, [promotions]);
+
+  useEffect(() => {
+    if (activePromos.length <= 1) return;
+    const timer = setInterval(() => {
+      setPromoIndex((i) => (i + 1) % activePromos.length);
+    }, 3500);
+    return () => clearInterval(timer);
+  }, [activePromos.length]);
 
   // Compute the active target date
   const computeTarget = useCallback(() => {
@@ -108,7 +123,7 @@ export default function HeroBanner({ products }) {
             </div>
             {activePromo && (
               <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-amber-500 to-amber-600 text-zinc-950 rounded-md text-xs font-mono font-black shadow-sm animate-pulse">
-                <span>{describePromotion(activePromo)}</span>
+                <span key={activePromo.id}>{describePromotion(activePromo)}</span>
               </div>
             )}
           </div>
