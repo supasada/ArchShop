@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../config/supabase';
+import { formatDateThai } from '../utils/formatters';
+import { useLanguage } from '../context/LanguageContext';
 
 function useTimeLeft(targetAt) {
   const [timeLeft, setTimeLeft] = useState(null);
@@ -28,15 +30,48 @@ function useTimeLeft(targetAt) {
 }
 
 function CountdownEventCard({ event }) {
+  const { t, lang } = useLanguage();
   const timeLeft = useTimeLeft(event.target_at);
   if (!timeLeft) return null;
 
+  const formattedDate = lang === 'th'
+    ? formatDateThai(event.target_at)
+    : new Date(event.target_at).toLocaleDateString(lang === 'zh' ? 'zh-CN' : 'en-US', {
+        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+      });
+
   return (
-    <div className="p-3 bg-zinc-800/90 rounded-xl border border-zinc-700 min-w-[150px]">
-      <div className="text-[10px] font-mono text-zinc-400 truncate mb-1">{event.title}</div>
-      <div className="flex items-center gap-1 font-mono">
-        <span className="text-sm font-black text-white">{String(timeLeft.days).padStart(2, '0')}d</span>
-        <span className="text-sm font-black text-amber-400">{String(timeLeft.hours).padStart(2, '0')}:{String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}</span>
+    <div className="mt-4 p-4 sm:p-6 bg-zinc-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 border border-zinc-800">
+      <div className="space-y-1 min-w-0">
+        <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+          <span>{t.eventCountdownTag || 'EVENT COUNTDOWN (REAL-TIME)'}</span>
+        </div>
+        <h3 className="text-base sm:text-xl font-bold tracking-tight truncate">{event.title}</h3>
+        <p className="text-xs text-amber-400/90 font-mono">
+          {t.eventDeadlinePrefix || '🎯 กำหนด:'} {formattedDate}
+        </p>
+      </div>
+
+      <div className="w-full md:w-auto font-mono">
+        <div className="grid grid-cols-4 gap-1.5 xs:gap-2 sm:gap-3 max-w-sm sm:max-w-none">
+          <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+            <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.days).padStart(2, '0')}</span>
+            <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.daysUpper}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+            <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.hours).padStart(2, '0')}</span>
+            <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.hoursUpper}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+            <span className="text-lg xs:text-xl sm:text-2xl font-black text-white leading-none">{String(timeLeft.minutes).padStart(2, '0')}</span>
+            <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.minsUpper}</span>
+          </div>
+          <div className="flex flex-col items-center justify-center bg-zinc-800/90 px-2 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-zinc-700">
+            <span className="text-lg xs:text-xl sm:text-2xl font-black text-amber-400 leading-none">{String(timeLeft.seconds).padStart(2, '0')}</span>
+            <span className="text-[8px] xs:text-[9px] sm:text-[10px] text-zinc-400 uppercase mt-1">{t.secsUpper}</span>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -58,10 +93,10 @@ export default function CountdownEventsRow() {
   if (events.length === 0) return null;
 
   return (
-    <div className="mt-4 flex flex-wrap gap-2.5">
+    <>
       {events.map((ev) => (
         <CountdownEventCard key={ev.id} event={ev} />
       ))}
-    </div>
+    </>
   );
 }
