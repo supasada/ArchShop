@@ -3,10 +3,12 @@ import { STORE_CONFIG } from '../config/storeConfig';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../config/supabase';
 
-export default function SizeChartModal({ isOpen, onClose }) {
+export default function SizeChartModal({ isOpen, onClose, variant }) {
   const { t } = useLanguage();
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'graphic'
   const [sizeRows, setSizeRows] = useState(STORE_CONFIG.sizeChart);
+  const [variantRows, setVariantRows] = useState([]);
+  const [variantColumns, setVariantColumns] = useState([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -15,7 +17,27 @@ export default function SizeChartModal({ isOpen, onClose }) {
     });
   }, [isOpen]);
 
+  useEffect(() => {
+    if (!isOpen || !variant?.id) {
+      setVariantRows([]);
+      setVariantColumns([]);
+      return;
+    }
+    api.getVariantSizeRows(variant.id).then((rows) => {
+      const cols = [];
+      rows.forEach((row) => {
+        Object.keys(row.attributes || {}).forEach((key) => {
+          if (!cols.includes(key)) cols.push(key);
+        });
+      });
+      setVariantRows(rows);
+      setVariantColumns(cols);
+    });
+  }, [isOpen, variant?.id]);
+
   if (!isOpen) return null;
+
+  const usingVariantChart = variantRows.length > 0 && variantColumns.length > 0;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
@@ -70,30 +92,53 @@ export default function SizeChartModal({ isOpen, onClose }) {
           {viewMode === 'table' ? (
             <div className="space-y-4">
               <div className="overflow-x-auto rounded-xl border border-zinc-200 shadow-xs">
-                <table className="w-full border-collapse text-left text-xs font-mono">
-                  <thead>
-                    <tr className="bg-zinc-900 text-white font-bold">
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sizeCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.chestCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.lengthCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sleeveCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.armholeCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.shoulderCol}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {sizeRows.map((row) => (
-                      <tr key={row.size} className="hover:bg-zinc-50 text-center transition-colors">
-                        <td className="py-3 px-3 sm:px-4 font-bold text-zinc-950 bg-zinc-50/70">{row.size}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-900 font-bold">{row.chest}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.length}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.sleeve}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.armhole}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.shoulder}</td>
+                {usingVariantChart ? (
+                  <table className="w-full border-collapse text-left text-xs font-mono">
+                    <thead>
+                      <tr className="bg-zinc-900 text-white font-bold">
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sizeCol}</th>
+                        {variantColumns.map((col) => (
+                          <th key={col} className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{col}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {variantRows.map((row) => (
+                        <tr key={row.id} className="hover:bg-zinc-50 text-center transition-colors">
+                          <td className="py-3 px-3 sm:px-4 font-bold text-zinc-950 bg-zinc-50/70">{row.size_label}</td>
+                          {variantColumns.map((col) => (
+                            <td key={col} className="py-3 px-3 sm:px-4 text-zinc-700">{row.attributes?.[col] || '-'}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <table className="w-full border-collapse text-left text-xs font-mono">
+                    <thead>
+                      <tr className="bg-zinc-900 text-white font-bold">
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sizeCol}</th>
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.chestCol}</th>
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.lengthCol}</th>
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sleeveCol}</th>
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.armholeCol}</th>
+                        <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.shoulderCol}</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-100">
+                      {sizeRows.map((row) => (
+                        <tr key={row.size} className="hover:bg-zinc-50 text-center transition-colors">
+                          <td className="py-3 px-3 sm:px-4 font-bold text-zinc-950 bg-zinc-50/70">{row.size}</td>
+                          <td className="py-3 px-3 sm:px-4 text-zinc-900 font-bold">{row.chest}</td>
+                          <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.length}</td>
+                          <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.sleeve}</td>
+                          <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.armhole}</td>
+                          <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.shoulder}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] font-mono text-zinc-500 px-1">

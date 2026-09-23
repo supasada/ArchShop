@@ -47,6 +47,7 @@ function MainApp() {
   const [completedOrder, setCompletedOrder] = useState(null);
   const [isTrackingOpen, setIsTrackingOpen] = useState(false);
   const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
+  const [sizeChartVariant, setSizeChartVariant] = useState(null);
 
   const loadProducts = async () => {
     try {
@@ -119,7 +120,7 @@ function MainApp() {
             products={products}
             loading={loading}
             onSelectProduct={(p) => setSelectedProduct(p)}
-            onOpenSizeChart={() => setIsSizeChartOpen(true)}
+            onOpenSizeChart={() => { setSizeChartVariant(null); setIsSizeChartOpen(true); }}
           />
         )}
       </main>
@@ -151,7 +152,7 @@ function MainApp() {
         <ProductSelectModal
           product={selectedProduct}
           onClose={() => setSelectedProduct(null)}
-          onOpenSizeChart={() => setIsSizeChartOpen(true)}
+          onOpenSizeChart={(variant) => { setSizeChartVariant(variant || null); setIsSizeChartOpen(true); }}
           onOpenCart={() => setIsCartOpen(true)}
         />
       )}
@@ -161,7 +162,7 @@ function MainApp() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onSuccess={handleOrderSuccess}
-        onOpenSizeChart={() => setIsSizeChartOpen(true)}
+        onOpenSizeChart={() => { setSizeChartVariant(null); setIsSizeChartOpen(true); }}
       />
 
       {/* Official Printable Receipt Modal */}
@@ -183,6 +184,7 @@ function MainApp() {
       <SizeChartModal
         isOpen={isSizeChartOpen}
         onClose={() => setIsSizeChartOpen(false)}
+        variant={sizeChartVariant}
       />
 
     </div>

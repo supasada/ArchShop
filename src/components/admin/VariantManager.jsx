@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
 import { formatCurrency } from '../../utils/formatters';
+import VariantSizeChartManager from './VariantSizeChartManager';
 
 export default function VariantManager({ productId }) {
   const [variants, setVariants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState({ name: '', price: '', stock_limit: '' });
   const [uploadingId, setUploadingId] = useState(null);
+  const [expandedSizeChartId, setExpandedSizeChartId] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -77,6 +79,13 @@ export default function VariantManager({ productId }) {
             <div className="flex gap-1.5">
               <button
                 type="button"
+                onClick={() => setExpandedSizeChartId(expandedSizeChartId === v.id ? null : v.id)}
+                className="px-2 py-1 rounded text-[10px] font-bold bg-zinc-100 text-zinc-700"
+              >
+                {expandedSizeChartId === v.id ? 'ซ่อนตารางไซส์' : 'ตารางไซส์'}
+              </button>
+              <button
+                type="button"
                 onClick={() => handleToggleActive(v)}
                 className={`px-2 py-1 rounded text-[10px] font-bold ${v.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-200 text-zinc-600'}`}
               >
@@ -91,6 +100,10 @@ export default function VariantManager({ productId }) {
               </button>
             </div>
           </div>
+
+          {expandedSizeChartId === v.id && (
+            <VariantSizeChartManager variantId={v.id} />
+          )}
 
           <div className="flex gap-1.5 flex-wrap">
             {(v.images || []).map((img) => (

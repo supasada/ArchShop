@@ -59,3 +59,40 @@ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ------------------------------------------------------------------------------
+-- 5. PER-VARIANT SIZE ROWS — flexible columns, so non-shirt products
+--    (e.g. a ผ้าคาด with only a length) aren't forced into chest/sleeve/etc.
+--    Falls back to the global size_chart above for products with no variant.
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.variant_size_rows (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    variant_id UUID NOT NULL REFERENCES public.product_variants(id) ON DELETE CASCADE,
+    size_label TEXT NOT NULL,
+    attributes JSONB NOT NULL DEFAULT '{}'::jsonb,
+    sort_order INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_variant_size_rows_variant_id ON public.variant_size_rows(variant_id);
+
+ALTER TABLE public.variant_size_rows ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Public can view variant size rows" ON public.variant_size_rows;
+CREATE POLICY "Public can view variant size rows"
+ON public.variant_size_rows FOR SELECT
+TO anon, authenticated
+USING (true);
+
+DROP POLICY IF EXISTS "Admins can manage variant size rows" ON public.variant_size_rows;
+CREATE POLICY "Admins can manage variant size rows"
+ON public.variant_size_rows FOR ALL
+TO anon, authenticated
+USING (true) WITH CHECK (true);
+
+DO $$
+BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE public.variant_size_rows;
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;

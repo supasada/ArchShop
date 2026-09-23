@@ -134,9 +134,9 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               {/* Size Chart Shortcut */}
               <div className="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between gap-2">
                 <span className="text-xs font-mono text-zinc-600 truncate">{t.unsureSize || 'ไม่แน่ใจขนาดไซส์?'}</span>
-                <button 
-                  type="button" 
-                  onClick={onOpenSizeChart} 
+                <button
+                  type="button"
+                  onClick={() => onOpenSizeChart(selectedVariant)}
                   className="text-xs font-bold text-zinc-900 underline hover:text-amber-600 shrink-0"
                 >
                   {t.viewSizeChartBtn || 'ตารางไซส์ ↗'}

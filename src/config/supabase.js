@@ -673,5 +673,61 @@ export const api = {
       return true;
     }
     throw new Error('Size chart requires a live Supabase connection.');
+  },
+
+  // Per-Variant Size Rows
+  async getVariantSizeRows(variantId) {
+    if (!variantId) return [];
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('variant_size_rows')
+        .select('*')
+        .eq('variant_id', variantId)
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getVariantSizeRows notice:', error);
+        return [];
+      }
+      return data || [];
+    }
+    return [];
+  },
+
+  async createVariantSizeRow(rowData) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('variant_size_rows').insert([rowData]).select();
+      if (error) {
+        console.error('Supabase createVariantSizeRow error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Variant size rows require a live Supabase connection.');
+  },
+
+  async updateVariantSizeRow(id, updates) {
+    const allowedCols = ['size_label', 'attributes', 'sort_order'];
+    const cleanUpdates = {};
+    Object.keys(updates).forEach((key) => {
+      if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];
+    });
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('variant_size_rows').update(cleanUpdates).eq('id', id).select();
+      if (error) {
+        console.error('Supabase updateVariantSizeRow error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Variant size rows require a live Supabase connection.');
+  },
+
+  async deleteVariantSizeRow(id) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('variant_size_rows').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Variant size rows require a live Supabase connection.');
   }
 };
