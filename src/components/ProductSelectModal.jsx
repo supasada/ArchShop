@@ -34,6 +34,13 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const [size, setSize] = useState(sizes[0] || 'L');
   const [color, setColor] = useState(colors[0] || 'Deep Black');
 
+  useEffect(() => {
+    if (!sizes.includes(size)) setSize(sizes[0] || 'L');
+  }, [sizes]);
+  useEffect(() => {
+    if (!colors.includes(color)) setColor(colors[0] || 'Deep Black');
+  }, [colors]);
+
   if (!product) return null;
 
   const effectiveDeadline = product.order_deadline || (typeof localStorage !== 'undefined' ? localStorage.getItem('arch_custom_deadline') : null);
@@ -41,7 +48,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const isClosed = product.is_active === false || isExpired;
 
   const unitPrice = Number(selectedVariant?.price ?? product.price) || 219;
-  const preview = computePricing([{ price: unitPrice, quantity }], promotions);
+  const preview = computePricing([{ productId: product.id, variantId: selectedVariant?.id || null, price: unitPrice, quantity }], promotions);
   const totalPrice = preview.subtotal;
   const regularPrice = preview.rawSubtotal;
   const savings = preview.discount;

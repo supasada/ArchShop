@@ -229,7 +229,11 @@ export default function PromotionManager({ products }) {
           <button
             type="button"
             onClick={handleSave}
-            disabled={form.type === 'bundle' && form.bundle_items.length < 2}
+            disabled={
+              !form.name.trim() ||
+              (form.type === 'bundle' && (form.bundle_items.length < 2 || !(Number(form.discount_value) > 0))) ||
+              (form.type === 'quantity_break' && !(Number(form.quantity) > 0 && Number(form.bundle_price) > 0))
+            }
             className="flex-1 py-2 bg-zinc-900 text-white text-xs font-bold rounded disabled:opacity-40"
           >
             {editingId ? 'บันทึกการแก้ไข' : 'สร้างโปรโมชั่น'}

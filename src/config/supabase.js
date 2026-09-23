@@ -196,10 +196,13 @@ export const api = {
           return data[0];
         }
         if (error) {
-          console.warn('Supabase submitOrder notice (attempting retry without product_id):', error);
-          // If foreign key constraint failed on product_id, retry without product_id
-          if (cleanOrder.product_id) {
+          console.warn('Supabase submitOrder notice (attempting retry without product_id/product_variant_id):', error);
+          // If foreign key constraint or unknown-column failure occurred on product_id
+          // and/or product_variant_id (e.g. migration 0002 not yet applied), retry
+          // without both so a pre-migration database still gets the order recorded.
+          if (cleanOrder.product_id || cleanOrder.product_variant_id) {
             cleanOrder.product_id = null;
+            cleanOrder.product_variant_id = null;
             const retry = await supabase.from('orders').insert([cleanOrder]).select();
             if (!retry.error && retry.data?.[0]) {
               return retry.data[0];

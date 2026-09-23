@@ -132,3 +132,10 @@ BEGIN
 EXCEPTION
   WHEN duplicate_object THEN NULL;
 END $$;
+
+-- ------------------------------------------------------------------------------
+-- 6. SEED DEFAULT PROMOTION (preserve existing live "2 for 399" behavior)
+-- ------------------------------------------------------------------------------
+INSERT INTO public.promotions (name, type, quantity, bundle_price, applies_to_all)
+SELECT 'ซื้อ 2 ตัว 399.-', 'quantity_break', 2, 399, true
+WHERE NOT EXISTS (SELECT 1 FROM public.promotions);
