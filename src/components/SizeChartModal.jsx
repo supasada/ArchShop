@@ -35,9 +35,13 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
     });
   }, [isOpen, variant?.id]);
 
-  if (!isOpen) return null;
-
   const usingVariantChart = variantRows.length > 0 && variantColumns.length > 0;
+
+  useEffect(() => {
+    if (usingVariantChart && viewMode === 'graphic') setViewMode('table');
+  }, [usingVariantChart, viewMode]);
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
@@ -70,15 +74,17 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
             >
               <span>{t.sizeChartTableTab || '📊 ตารางขนาด (Table)'}</span>
             </button>
-            <button
-              type="button"
-              onClick={() => setViewMode('graphic')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                viewMode === 'graphic' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-800'
-              }`}
-            >
-              <span>{t.sizeChartGraphicTab || '🖼️ แผนผังไซส์ (Graphic)'}</span>
-            </button>
+            {!usingVariantChart && (
+              <button
+                type="button"
+                onClick={() => setViewMode('graphic')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  viewMode === 'graphic' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                <span>{t.sizeChartGraphicTab || '🖼️ แผนผังไซส์ (Graphic)'}</span>
+              </button>
+            )}
           </div>
 
           <span className="text-[11px] font-mono text-zinc-400 hidden sm:inline">
@@ -148,7 +154,7 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
                 </span>
               </div>
             </div>
-          ) : (
+          ) : !usingVariantChart && (
             <div className="flex flex-col items-center justify-center p-2 bg-zinc-50 rounded-2xl border border-zinc-200 overflow-hidden">
               <img
                 src="/assets/size_chart.jpg"
