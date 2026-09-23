@@ -3,6 +3,7 @@ import { STORE_CONFIG } from '../config/storeConfig';
 import { formatDateThai, describePromotion } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
+import CountdownEventsRow from './CountdownEventsRow';
 
 export default function HeroBanner({ products }) {
   const { t, lang } = useLanguage();
@@ -181,6 +182,8 @@ export default function HeroBanner({ products }) {
             )}
           </div>
         </div>
+
+        <CountdownEventsRow />
 
       </div>
     </section>

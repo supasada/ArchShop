@@ -754,5 +754,59 @@ export const api = {
       return true;
     }
     throw new Error('Variant size rows require a live Supabase connection.');
+  },
+
+  // Countdown Events
+  async getCountdownEvents() {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('countdown_events')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getCountdownEvents notice:', error);
+        return [];
+      }
+      return data || [];
+    }
+    return [];
+  },
+
+  async createCountdownEvent(eventData) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('countdown_events').insert([eventData]).select();
+      if (error) {
+        console.error('Supabase createCountdownEvent error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Countdown events require a live Supabase connection.');
+  },
+
+  async updateCountdownEvent(id, updates) {
+    const allowedCols = ['title', 'target_at', 'is_active', 'sort_order'];
+    const cleanUpdates = {};
+    Object.keys(updates).forEach((key) => {
+      if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];
+    });
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('countdown_events').update(cleanUpdates).eq('id', id).select();
+      if (error) {
+        console.error('Supabase updateCountdownEvent error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Countdown events require a live Supabase connection.');
+  },
+
+  async deleteCountdownEvent(id) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('countdown_events').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Countdown events require a live Supabase connection.');
   }
 };
