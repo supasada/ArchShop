@@ -171,6 +171,7 @@ export const api = {
     // Construct strict clean order matching Postgres schema
     const cleanOrder = {
       product_id: isUUID ? orderData.product_id : null,
+      product_variant_id: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(String(orderData.product_variant_id || '')) ? orderData.product_variant_id : null,
       full_name: String(orderData.full_name || '').trim(),
       student_id: String(orderData.student_id || '').trim(),
       year_of_study: String(orderData.year_of_study || '').trim(),
@@ -292,7 +293,7 @@ export const api = {
 
   async updateOrder(id, updates) {
     const allowedCols = [
-      'product_id', 'full_name', 'student_id', 'year_of_study', 'major',
+      'product_id', 'product_variant_id', 'full_name', 'student_id', 'year_of_study', 'major',
       'phone_number', 'email_or_line_id', 'color', 'size', 'quantity',
       'total_price', 'payment_slip_url', 'delivery_method', 'shipping_address',
       'notes', 'payment_status'

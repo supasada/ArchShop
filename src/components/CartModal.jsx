@@ -131,6 +131,7 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
 
       const orderPayload = {
         product_id: primaryItem?.productId,
+        product_variant_id: primaryItem?.variantId || null,
         full_name: fullName,
         student_id: studentId,
         year_of_study: yearOfStudy,
