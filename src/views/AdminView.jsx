@@ -73,6 +73,13 @@ export default function AdminView({ onBackToStore }) {
 
   // Deadline Settings Modal
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
+  const [sizeChartOptions, setSizeChartOptions] = useState(['S', 'M', 'L', 'XL', '2XL', '3XL']);
+
+  useEffect(() => {
+    api.getSizeChart().then((rows) => {
+      if (rows.length > 0) setSizeChartOptions(rows.map((r) => r.size));
+    });
+  }, []);
 
 
   // Check auth session
@@ -1147,7 +1154,7 @@ export default function AdminView({ onBackToStore }) {
               <div>
                 <label className="block font-bold text-zinc-700 mb-1.5">ไซส์ที่เปิดให้เลือก (Available Sizes):</label>
                 <div className="flex flex-wrap gap-2">
-                  {['S', 'M', 'L', 'XL', '2XL', '3XL'].map((s) => {
+                  {sizeChartOptions.map((s) => {
                     const checked = productFormData.available_sizes.includes(s);
                     return (
                       <button
@@ -1351,7 +1358,7 @@ export default function AdminView({ onBackToStore }) {
                     onChange={(e) => setOrderFormData({ ...orderFormData, size: e.target.value })}
                     className="w-full px-3 py-2 bg-zinc-50 border rounded-xl font-mono font-bold"
                   >
-                    {['S', 'M', 'L', 'XL', '2XL', '3XL'].map(s => <option key={s} value={s}>{s}</option>)}
+                    {sizeChartOptions.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
 

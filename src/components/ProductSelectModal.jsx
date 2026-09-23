@@ -124,7 +124,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 </span>
                 <h4 className="font-bold text-zinc-900 text-base sm:text-lg leading-snug mt-1.5">{product.name}</h4>
                 <div className="text-xl sm:text-2xl font-black font-mono text-zinc-950 mt-1">
-                  {formatCurrency(product.price)}
+                  {formatCurrency(unitPrice)}
                 </div>
                 <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-3">
                   {product.description || 'เสื้อกิจกรรมสโมสรนักศึกษาคณะสถาปัตยกรรมศาสตร์ มหาวิทยาลัยเชียงใหม่'}
