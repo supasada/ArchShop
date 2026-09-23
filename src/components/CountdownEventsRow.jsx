@@ -41,15 +41,20 @@ function CountdownEventCard({ event }) {
 
   return (
     <div className="mt-4 p-4 sm:p-6 bg-zinc-900 text-white rounded-2xl shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-5 sm:gap-6 border border-zinc-800">
-      <div className="space-y-1 min-w-0">
-        <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
-          <span className={`w-2 h-2 rounded-full ${timeLeft ? 'bg-rose-500 animate-pulse' : 'bg-zinc-600'}`}></span>
-          <span>{t.eventCountdownTag || 'EVENT COUNTDOWN'}</span>
+      <div className="flex items-center gap-3 min-w-0">
+        {event.image_url && (
+          <img src={event.image_url} alt={event.title} className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl object-cover border border-zinc-700 shrink-0" />
+        )}
+        <div className="space-y-1 min-w-0">
+          <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
+            <span className={`w-2 h-2 rounded-full ${timeLeft ? 'bg-rose-500 animate-pulse' : 'bg-zinc-600'}`}></span>
+            <span>{t.eventCountdownTag || 'EVENT COUNTDOWN'}</span>
+          </div>
+          <h3 className="text-base sm:text-xl font-bold tracking-tight truncate">{event.title}</h3>
+          <p className="text-xs text-amber-400/90 font-mono">
+            {t.eventDeadlinePrefix || '🎯 กำหนด:'} {formattedDate}
+          </p>
         </div>
-        <h3 className="text-base sm:text-xl font-bold tracking-tight truncate">{event.title}</h3>
-        <p className="text-xs text-amber-400/90 font-mono">
-          {t.eventDeadlinePrefix || '🎯 กำหนด:'} {formattedDate}
-        </p>
       </div>
 
       {!timeLeft ? (
