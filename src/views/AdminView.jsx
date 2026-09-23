@@ -65,7 +65,8 @@ export default function AdminView({ onBackToStore }) {
     delivery_method: 'pickup',
     shipping_address: '',
     notes: '',
-    payment_status: 'pending'
+    payment_status: 'pending',
+    tracking_number: ''
   });
 
   // Quick Receipt Modal for any order
@@ -252,7 +253,8 @@ export default function AdminView({ onBackToStore }) {
       delivery_method: order.delivery_method || 'pickup',
       shipping_address: order.shipping_address || '',
       notes: order.notes || '',
-      payment_status: order.payment_status || 'pending'
+      payment_status: order.payment_status || 'pending',
+      tracking_number: order.tracking_number || ''
     });
     setIsOrderEditModalOpen(true);
   };
@@ -1410,6 +1412,17 @@ export default function AdminView({ onBackToStore }) {
                     <option value="rejected">rejected (ปฏิเสธ)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">เลขพัสดุ (Tracking Number)</label>
+                <input
+                  type="text"
+                  placeholder="เช่น TH0123456789X"
+                  value={orderFormData.tracking_number}
+                  onChange={(e) => setOrderFormData({ ...orderFormData, tracking_number: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-50 border rounded-xl font-mono"
+                />
               </div>
 
               <div>

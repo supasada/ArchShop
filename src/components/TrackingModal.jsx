@@ -204,6 +204,14 @@ export default function TrackingModal({ isOpen, onClose }) {
                           ⚠️ <strong>Notice:</strong> Slip verification failed. Please contact Student Union committee with proof of transfer.
                         </div>
                       )}
+
+                      {order.tracking_number && (
+                        <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-800 flex items-center gap-1.5">
+                          <span>📦</span>
+                          <span className="font-bold">เลขพัสดุ:</span>
+                          <span className="font-mono font-bold">{order.tracking_number}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Bar */}

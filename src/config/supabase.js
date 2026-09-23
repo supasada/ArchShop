@@ -299,7 +299,7 @@ export const api = {
       'product_id', 'product_variant_id', 'full_name', 'student_id', 'year_of_study', 'major',
       'phone_number', 'email_or_line_id', 'color', 'size', 'quantity',
       'total_price', 'payment_slip_url', 'delivery_method', 'shipping_address',
-      'notes', 'payment_status'
+      'notes', 'payment_status', 'tracking_number'
     ];
     const cleanUpdates = {};
     Object.keys(updates).forEach(key => {
