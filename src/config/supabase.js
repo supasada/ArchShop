@@ -619,5 +619,59 @@ export const api = {
       return true;
     }
     throw new Error('Promotions require a live Supabase connection.');
+  },
+
+  // Size Chart
+  async getSizeChart() {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('size_chart')
+        .select('*')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getSizeChart notice:', error);
+        return [];
+      }
+      return data || [];
+    }
+    return [];
+  },
+
+  async createSizeChartRow(rowData) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('size_chart').insert([rowData]).select();
+      if (error) {
+        console.error('Supabase createSizeChartRow error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Size chart requires a live Supabase connection.');
+  },
+
+  async updateSizeChartRow(id, updates) {
+    const allowedCols = ['size', 'chest', 'length', 'sleeve', 'armhole', 'shoulder', 'sort_order'];
+    const cleanUpdates = {};
+    Object.keys(updates).forEach((key) => {
+      if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];
+    });
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase.from('size_chart').update(cleanUpdates).eq('id', id).select();
+      if (error) {
+        console.error('Supabase updateSizeChartRow error:', error);
+        throw error;
+      }
+      return data?.[0];
+    }
+    throw new Error('Size chart requires a live Supabase connection.');
+  },
+
+  async deleteSizeChartRow(id) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('size_chart').delete().eq('id', id);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Size chart requires a live Supabase connection.');
   }
 };

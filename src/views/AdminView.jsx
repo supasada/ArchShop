@@ -6,6 +6,7 @@ import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
 import PromotionManager from '../components/admin/PromotionManager';
+import SizeChartManager from '../components/admin/SizeChartManager';
 
 
 export default function AdminView({ onBackToStore }) {
@@ -17,7 +18,7 @@ export default function AdminView({ onBackToStore }) {
 
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
-  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'products' | 'promotions' | 'sizing'
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' | 'products' | 'promotions' | 'sizechart' | 'sizing'
 
   // Order filters
   const [statusFilter, setStatusFilter] = useState('all');
@@ -560,6 +561,14 @@ export default function AdminView({ onBackToStore }) {
           โปรโมชั่น
         </button>
         <button
+          onClick={() => setActiveTab('sizechart')}
+          className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${
+            activeTab === 'sizechart' ? 'border-zinc-900 text-zinc-900 bg-zinc-50 rounded-t-xl' : 'border-transparent text-zinc-500 hover:text-zinc-900'
+          }`}
+        >
+          ตารางไซส์
+        </button>
+        <button
           onClick={() => setActiveTab('sizing')}
           className={`px-5 py-3 text-xs sm:text-sm font-bold border-b-2 whitespace-nowrap transition-all flex items-center gap-2 ${
             activeTab === 'sizing' ? 'border-zinc-900 text-zinc-900 bg-zinc-50 rounded-t-xl' : 'border-transparent text-zinc-500 hover:text-zinc-900'
@@ -882,6 +891,10 @@ export default function AdminView({ onBackToStore }) {
 
       {activeTab === 'promotions' && (
         <PromotionManager products={products} />
+      )}
+
+      {activeTab === 'sizechart' && (
+        <SizeChartManager />
       )}
 
       {/* ==================================================== */}

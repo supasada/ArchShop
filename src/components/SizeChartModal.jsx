@@ -1,10 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { useLanguage } from '../context/LanguageContext';
+import { api } from '../config/supabase';
 
 export default function SizeChartModal({ isOpen, onClose }) {
   const { t } = useLanguage();
   const [viewMode, setViewMode] = useState('table'); // 'table' | 'graphic'
+  const [sizeRows, setSizeRows] = useState(STORE_CONFIG.sizeChart);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    api.getSizeChart().then((rows) => {
+      if (rows.length > 0) setSizeRows(rows);
+    });
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -73,7 +82,7 @@ export default function SizeChartModal({ isOpen, onClose }) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-100">
-                    {STORE_CONFIG.sizeChart.map((row) => (
+                    {sizeRows.map((row) => (
                       <tr key={row.size} className="hover:bg-zinc-50 text-center transition-colors">
                         <td className="py-3 px-3 sm:px-4 font-bold text-zinc-950 bg-zinc-50/70">{row.size}</td>
                         <td className="py-3 px-3 sm:px-4 text-zinc-900 font-bold">{row.chest}</td>
