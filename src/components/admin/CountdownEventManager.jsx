@@ -2,14 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
 import { formatDateToInputLocal, parseInputLocalToDate, formatDateThai } from '../../utils/formatters';
 
-const emptyForm = { title: '', target_at: '', image_url: '' };
+const emptyForm = { title: '', target_at: '' };
 
 export default function CountdownEventManager() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
-  const [uploadingImage, setUploadingImage] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -36,8 +35,7 @@ export default function CountdownEventManager() {
     if (!form.title.trim() || !form.target_at) return;
     const payload = {
       title: form.title.trim(),
-      target_at: parseInputLocalToDate(form.target_at).toISOString(),
-      image_url: form.image_url || null
+      target_at: parseInputLocalToDate(form.target_at).toISOString()
     };
     if (editingId) {
       await api.updateCountdownEvent(editingId, payload);
@@ -50,18 +48,7 @@ export default function CountdownEventManager() {
 
   const handleEdit = (ev) => {
     setEditingId(ev.id);
-    setForm({ title: ev.title, target_at: formatDateToInputLocal(ev.target_at), image_url: ev.image_url || '' });
-  };
-
-  const handleImageUpload = async (file) => {
-    if (!file) return;
-    setUploadingImage(true);
-    try {
-      const url = await api.uploadProductImage(file, 'countdown');
-      setForm((f) => ({ ...f, image_url: url }));
-    } finally {
-      setUploadingImage(false);
-    }
+    setForm({ title: ev.title, target_at: formatDateToInputLocal(ev.target_at) });
   };
 
   const handleToggleActive = async (ev) => {
@@ -99,14 +86,9 @@ export default function CountdownEventManager() {
       <div className="space-y-2">
         {events.map((ev, idx) => (
           <div key={ev.id} className="bg-white p-4 rounded-xl border border-zinc-200 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3 min-w-0">
-              {ev.image_url && (
-                <img src={ev.image_url} alt="" className="w-10 h-10 rounded-lg object-cover border border-zinc-200 shrink-0" />
-              )}
-              <div className="min-w-0">
-                <span className="font-bold text-sm truncate">{ev.title}</span>
-                <div className="text-[11px] font-mono text-zinc-500">{formatDateThai(ev.target_at, true)}</div>
-              </div>
+            <div className="min-w-0">
+              <span className="font-bold text-sm truncate">{ev.title}</span>
+              <div className="text-[11px] font-mono text-zinc-500">{formatDateThai(ev.target_at, true)}</div>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button type="button" onClick={() => move(idx, -1)} disabled={idx === 0} className="px-1.5 py-1 rounded bg-zinc-100 text-zinc-700 disabled:opacity-30">↑</button>
@@ -140,27 +122,6 @@ export default function CountdownEventManager() {
           onChange={(e) => setForm({ ...form, target_at: e.target.value })}
           className="w-full px-2.5 py-1.5 text-xs border border-zinc-300 rounded font-mono"
         />
-
-        <div className="flex items-center gap-2">
-          {form.image_url && (
-            <img src={form.image_url} alt="" className="w-12 h-12 rounded-lg object-cover border border-zinc-200" />
-          )}
-          <label className="px-3 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold rounded cursor-pointer">
-            {uploadingImage ? 'กำลังอัปโหลด...' : (form.image_url ? 'เปลี่ยนรูปสินค้า' : '📷 เพิ่มรูปสินค้า (ไม่บังคับ)')}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleImageUpload(e.target.files?.[0])}
-            />
-          </label>
-          {form.image_url && (
-            <button type="button" onClick={() => setForm({ ...form, image_url: '' })} className="text-xs text-rose-600 font-bold">
-              ลบรูป
-            </button>
-          )}
-        </div>
-
         <div className="flex gap-2">
           <button
             type="button"

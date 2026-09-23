@@ -785,7 +785,7 @@ export const api = {
   },
 
   async updateCountdownEvent(id, updates) {
-    const allowedCols = ['title', 'target_at', 'is_active', 'sort_order', 'image_url'];
+    const allowedCols = ['title', 'target_at', 'is_active', 'sort_order'];
     const cleanUpdates = {};
     Object.keys(updates).forEach((key) => {
       if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];
