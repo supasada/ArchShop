@@ -14,28 +14,45 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const [showBack, setShowBack] = useState(false);
 
   const [variants, setVariants] = useState([]);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [variantQuantities, setVariantQuantities] = useState({});
 
   useEffect(() => {
     if (!product?.id) return;
     api.getVariants(product.id).then((list) => {
       setVariants(list);
-      setSelectedVariant(list.find((v) => v.is_active) || null);
+      setVariantQuantities({});
     });
   }, [product?.id]);
 
-  const sizes = Array.isArray(selectedVariant?.available_sizes)
-    ? selectedVariant.available_sizes
+  const hasVariants = variants.length > 0;
+  const selectedVariants = variants.filter((v) => (variantQuantities[v.id] || 0) > 0);
+
+  const toggleVariant = (variant) => {
+    setVariantQuantities((prev) => {
+      const next = { ...prev };
+      if (next[variant.id]) {
+        delete next[variant.id];
+      } else {
+        next[variant.id] = 1;
+      }
+      return next;
+    });
+  };
+
+  const setVariantQty = (variantId, qty) => {
+    setVariantQuantities((prev) => ({ ...prev, [variantId]: qty }));
+  };
+
+  const sizes = hasVariants
+    ? [...new Set(variants.filter((v) => v.is_active).flatMap((v) => (Array.isArray(v.available_sizes) ? v.available_sizes : [])))]
     : (Array.isArray(product?.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL']);
-  const colors = Array.isArray(selectedVariant?.available_colors)
-    ? selectedVariant.available_colors
-    : (Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black']);
+  const colors = Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black'];
 
   const [size, setSize] = useState(sizes[0] || 'L');
   const [color, setColor] = useState(colors[0] || 'Deep Black');
 
   useEffect(() => {
-    if (!sizes.includes(size)) setSize(sizes[0] || 'L');
+    if (sizes.length > 0 && !sizes.includes(size)) setSize(sizes[0]);
   }, [sizes]);
   useEffect(() => {
     if (!colors.includes(color)) setColor(colors[0] || 'Deep Black');
@@ -47,23 +64,42 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const isExpired = Boolean(effectiveDeadline && new Date(effectiveDeadline) < new Date());
   const isClosed = product.is_active === false || isExpired;
 
-  const unitPrice = Number(selectedVariant?.price ?? product.price) || 219;
-  const preview = computePricing([{ productId: product.id, variantId: selectedVariant?.id || null, price: unitPrice, quantity }], promotions);
+  const unitPrice = selectedVariants.length === 1
+    ? Number(selectedVariants[0].price)
+    : Number(product.price) || 219;
+
+  const previewItems = hasVariants
+    ? selectedVariants.map((v) => ({ productId: product.id, variantId: v.id, price: Number(v.price), quantity: variantQuantities[v.id] }))
+    : [{ productId: product.id, variantId: null, price: unitPrice, quantity }];
+
+  const preview = computePricing(previewItems, promotions);
   const totalPrice = preview.subtotal;
   const regularPrice = preview.rawSubtotal;
   const savings = preview.discount;
 
-  const effectiveColor = selectedVariant ? selectedVariant.name : color;
+  const canAdd = hasVariants ? selectedVariants.length > 0 : true;
+
+  const displayImage =
+    selectedVariants[0]?.images?.[0]?.image_url ||
+    (showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg'));
 
   const handleAddToCart = () => {
-    if (isClosed) return;
-    addToCart(product, size, effectiveColor, quantity, selectedVariant);
+    if (isClosed || !canAdd) return;
+    if (hasVariants) {
+      selectedVariants.forEach((v) => addToCart(product, size, v.name, variantQuantities[v.id], v));
+    } else {
+      addToCart(product, size, color, quantity, null);
+    }
     onClose();
   };
 
   const handleBuyNow = () => {
-    if (isClosed) return;
-    addToCart(product, size, effectiveColor, quantity, selectedVariant);
+    if (isClosed || !canAdd) return;
+    if (hasVariants) {
+      selectedVariants.forEach((v) => addToCart(product, size, v.name, variantQuantities[v.id], v));
+    } else {
+      addToCart(product, size, color, quantity, null);
+    }
     onClose();
     if (onOpenCart) onOpenCart();
   };
@@ -71,7 +107,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
       <div className="bg-white w-full max-w-2xl rounded-2xl sm:rounded-3xl shadow-2xl border border-zinc-200 overflow-hidden flex flex-col max-h-[96vh] sm:max-h-[92vh]">
-        
+
         {/* Header */}
         <div className="px-4 py-3.5 sm:px-6 sm:py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50 shrink-0">
           <div className="flex items-center gap-2">
@@ -79,9 +115,9 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
             <h3 className="font-bold text-zinc-900 text-sm sm:text-base truncate">{t.selectProductDetailsTitle || 'เลือกรายละเอียดสินค้า'}</h3>
 
           </div>
-          <button 
-            type="button" 
-            onClick={onClose} 
+          <button
+            type="button"
+            onClick={onClose}
             className="w-8 h-8 rounded-xl bg-zinc-200/80 hover:bg-zinc-300 flex items-center justify-center text-zinc-700 text-xs font-bold transition-all active:scale-95"
           >
             ✕
@@ -90,22 +126,19 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
         {/* Content */}
         <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
-          
+
           {/* Product Overview Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
-            
+
             {/* Image Box */}
             <div className="sm:col-span-5 relative aspect-square bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 shadow-xs">
               <img
-                src={
-                  selectedVariant?.images?.[0]?.image_url ||
-                  (showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg'))
-                }
+                src={displayImage}
                 alt={product.name}
                 className="w-full h-full object-cover transition-opacity duration-300"
                 onError={(e) => { e.target.src = '/assets/images/arch_shirt_front.jpg'; }}
               />
-              {!selectedVariant && product.image_back_url && (
+              {selectedVariants.length === 0 && product.image_back_url && (
                 <button
                   type="button"
                   onClick={() => setShowBack(!showBack)}
@@ -136,7 +169,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 <span className="text-xs font-mono text-zinc-600 truncate">{t.unsureSize || 'ไม่แน่ใจขนาดไซส์?'}</span>
                 <button
                   type="button"
-                  onClick={() => onOpenSizeChart(selectedVariant)}
+                  onClick={() => onOpenSizeChart(selectedVariants[0] || null)}
                   className="text-xs font-bold text-zinc-900 underline hover:text-amber-600 shrink-0"
                 >
                   {t.viewSizeChartBtn || 'ตารางไซส์ ↗'}
@@ -148,14 +181,19 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
           {/* Selection Options */}
           <div className="space-y-4 p-4 bg-zinc-50 rounded-2xl border border-zinc-200">
 
-            {variants.length > 0 && (
-              <VariantPicker variants={variants} selected={selectedVariant} onSelect={setSelectedVariant} />
+            {hasVariants && (
+              <VariantPicker
+                variants={variants}
+                quantities={variantQuantities}
+                onToggle={toggleVariant}
+                onQtyChange={setVariantQty}
+              />
             )}
 
             {/* Size */}
             <div>
               <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {selectedVariant
+                {hasVariants
                   ? (t.stepSizeNoNum || 'เลือกไซส์ (Size):')
                   : (t.step1Size || '1. เลือกไซส์ (Size):')}
               </label>
@@ -177,8 +215,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               </div>
             </div>
 
-            {/* Color — only when this product has no variant selected; the variant itself already determines the look */}
-            {!selectedVariant && (
+            {/* Color — only when this product has no variants; the variant itself already determines the look */}
+            {!hasVariants && (
               <div>
                 <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
                   {t.step2Color || '2. เลือกสี (Color):'}
@@ -203,31 +241,31 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               </div>
             )}
 
-            {/* Quantity */}
-            <div>
-              <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {selectedVariant
-                  ? (t.stepQtyNoNum || 'จำนวน (Quantity):')
-                  : (t.step3Qty || '3. จำนวน (Quantity):')}
-              </label>
-              <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden shadow-xs">
-                <button 
-                  type="button" 
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))} 
-                  className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center text-base"
-                >
-                  -
-                </button>
-                <span className="w-10 sm:w-12 text-center font-mono font-bold text-xs sm:text-sm">{quantity}</span>
-                <button 
-                  type="button" 
-                  onClick={() => setQuantity(Math.min(20, quantity + 1))} 
-                  className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center text-base"
-                >
-                  +
-                </button>
+            {/* Quantity — only when this product has no variants; with variants, quantity is set per-variant above */}
+            {!hasVariants && (
+              <div>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
+                  {t.step3Qty || '3. จำนวน (Quantity):'}
+                </label>
+                <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden shadow-xs">
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center text-base"
+                  >
+                    -
+                  </button>
+                  <span className="w-10 sm:w-12 text-center font-mono font-bold text-xs sm:text-sm">{quantity}</span>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(Math.min(20, quantity + 1))}
+                    className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center text-base"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
           </div>
 
@@ -248,6 +286,11 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 <span>{t.saveAmountLabel || 'ประหยัดไป'} {formatCurrency(savings)}</span>
               </div>
             )}
+            {hasVariants && !canAdd && (
+              <div className="pt-1 border-t border-zinc-800 text-[11px] text-amber-300">
+                💡 เลือกตัวเลือกสินค้าอย่างน้อย 1 อย่างก่อนเพิ่มลงตะกร้า
+              </div>
+            )}
           </div>
 
         </div>
@@ -263,7 +306,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="w-full sm:flex-1 py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border-2 border-zinc-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98]"
+                disabled={!canAdd}
+                className="w-full sm:flex-1 py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border-2 border-zinc-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span>🛒</span>
                 <span>{t.addToCartModalBtn || 'เพิ่มลงตะกร้า (Add to Cart)'}</span>
@@ -272,7 +316,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               <button
                 type="button"
                 onClick={handleBuyNow}
-                className="w-full sm:flex-1 py-3 px-4 bg-zinc-900 hover:bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98]"
+                disabled={!canAdd}
+                className="w-full sm:flex-1 py-3 px-4 bg-zinc-900 hover:bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span>💳</span>
                 <span>{t.checkoutNowBtn || 'ชำระเงินทันที (Checkout)'}</span>
