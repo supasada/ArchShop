@@ -45,7 +45,7 @@ function CountdownEventCard({ event }) {
       <div className="space-y-1 min-w-0">
         <div className="flex items-center gap-2 text-xs font-mono text-zinc-400">
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
-          <span>{t.eventCountdownTag || 'EVENT COUNTDOWN (REAL-TIME)'}</span>
+          <span>{t.eventCountdownTag || 'EVENT COUNTDOWN'}</span>
         </div>
         <h3 className="text-base sm:text-xl font-bold tracking-tight truncate">{event.title}</h3>
         <p className="text-xs text-amber-400/90 font-mono">
