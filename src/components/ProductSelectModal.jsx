@@ -53,15 +53,17 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const regularPrice = preview.rawSubtotal;
   const savings = preview.discount;
 
+  const effectiveColor = selectedVariant ? selectedVariant.name : color;
+
   const handleAddToCart = () => {
     if (isClosed) return;
-    addToCart(product, size, color, quantity, selectedVariant);
+    addToCart(product, size, effectiveColor, quantity, selectedVariant);
     onClose();
   };
 
   const handleBuyNow = () => {
     if (isClosed) return;
-    addToCart(product, size, color, quantity, selectedVariant);
+    addToCart(product, size, effectiveColor, quantity, selectedVariant);
     onClose();
     if (onOpenCart) onOpenCart();
   };
@@ -150,10 +152,12 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               <VariantPicker variants={variants} selected={selectedVariant} onSelect={setSelectedVariant} />
             )}
 
-            {/* 1. Size */}
+            {/* Size */}
             <div>
               <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {t.step1Size || '1. เลือกไซส์ (Size):'}
+                {selectedVariant
+                  ? (t.stepSizeNoNum || 'เลือกไซส์ (Size):')
+                  : (t.step1Size || '1. เลือกไซส์ (Size):')}
               </label>
               <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 {sizes.map((s) => (
@@ -162,8 +166,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                     type="button"
                     onClick={() => setSize(s)}
                     className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
-                      size === s 
-                        ? 'border-black bg-black text-white shadow-xs' 
+                      size === s
+                        ? 'border-black bg-black text-white shadow-xs'
                         : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
                     }`}
                   >
@@ -173,34 +177,38 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               </div>
             </div>
 
-            {/* 2. Color */}
-            <div>
-              <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {t.step2Color || '2. เลือกสี (Color):'}
-              </label>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setColor(c)}
-                    className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
-                      color === c 
-                        ? 'border-black bg-zinc-900 text-white shadow-xs' 
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    {c}
-                  </button>
-                ))}
+            {/* Color — only when this product has no variant selected; the variant itself already determines the look */}
+            {!selectedVariant && (
+              <div>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
+                  {t.step2Color || '2. เลือกสี (Color):'}
+                </label>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {colors.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setColor(c)}
+                      className={`px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 ${
+                        color === c
+                          ? 'border-black bg-zinc-900 text-white shadow-xs'
+                          : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+
               </div>
+            )}
 
-            </div>
-
-            {/* 3. Quantity */}
+            {/* Quantity */}
             <div>
               <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {t.step3Qty || '3. จำนวน (Quantity):'}
+                {selectedVariant
+                  ? (t.stepQtyNoNum || 'จำนวน (Quantity):')
+                  : (t.step3Qty || '3. จำนวน (Quantity):')}
               </label>
               <div className="inline-flex items-center border border-zinc-200 rounded-xl bg-white overflow-hidden shadow-xs">
                 <button 

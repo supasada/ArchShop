@@ -100,7 +100,7 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
       return;
     }
     if (!contact) {
-      alert(t.errContact || 'กรุณากรอก LINE ID หรือ อีเมล');
+      alert(t.errContact || 'กรุณากรอก LINE ID, IG หรือ อีเมล');
       return;
     }
     if (deliveryMethod === 'shipping' && (!address || address.length < 5)) {
@@ -425,11 +425,11 @@ export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart 
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-zinc-700 mb-1">{t.contactLabel || 'LINE ID หรือ อีเมล *'}</label>
+                    <label className="block text-xs font-medium text-zinc-700 mb-1">{t.contactLabel || 'LINE ID, IG หรือ อีเมล *'}</label>
                     <input
                       type="text"
                       required
-                      placeholder={t.contactPlaceholder || 'line: arch_student หรือ email'}
+                      placeholder={t.contactPlaceholder || 'line: arch_student, ig: arch_student หรือ email'}
                       value={formData.contact}
                       onChange={(e) => setFormData({ ...formData, contact: e.target.value })}
                       className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
