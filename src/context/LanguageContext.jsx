@@ -160,7 +160,7 @@ export const translations = {
 
     // Store View & Faculty
     availableDesigns: 'AVAILABLE DESIGNS',
-    catalogHeaderTitle: 'รายการเสื้อเปิดรับจอง (Pre-Order Products)',
+    catalogHeaderTitle: 'สินค้าที่เปิดรับจอง (Pre-Order Products)',
     pickupCardTitle: '📍 สถานที่รับเสื้อด้วยตนเอง',
     pickupLocationText: 'ห้องสโมสรนักศึกษา ชั้น 1 ตึกสถาปัตยกรรมศาสตร์ (ตรงข้ามห้องLA5001)',
     pickupHoursText: 'ติดตามวันที่ประกาศรับอีกที',
@@ -354,7 +354,7 @@ export const translations = {
 
     // Store View & Faculty
     availableDesigns: 'AVAILABLE DESIGNS',
-    catalogHeaderTitle: 'Official Pre-Order T-Shirt Collection',
+    catalogHeaderTitle: 'Products Open for Pre-Order',
     pickupCardTitle: '📍 Self Pick-up Location',
     pickupLocationText: 'Faculty Student Union Office, 1st Floor (Opposite Room LA5001)',
     pickupHoursText: 'Pick-up schedule will be announced soon',
@@ -548,7 +548,7 @@ export const translations = {
 
     // Store View & Faculty
     availableDesigns: 'AVAILABLE DESIGNS',
-    catalogHeaderTitle: '建筑学院官方预购短袖款式 (Pre-Order)',
+    catalogHeaderTitle: '开放预订的商品 (Pre-Order)',
     pickupCardTitle: '📍 现场自取地点',
     pickupLocationText: '建筑学院大楼 1 楼学生会办公室（LA5001 教室正对面）',
     pickupHoursText: '领取时间以官方后续公告为准',
