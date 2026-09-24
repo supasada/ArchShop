@@ -21,11 +21,22 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     api.getVariants(product.id).then((list) => {
       setVariants(list);
       setVariantQuantities({});
+      setVariantSizes({});
     });
   }, [product?.id]);
 
+  const [variantCharts, setVariantCharts] = useState({}); // variantId -> size chart rows
   const hasVariants = variants.length > 0;
   const selectedVariants = variants.filter((v) => (variantQuantities[v.id] || 0) > 0);
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(variants.map((v) => api.getVariantSizeRows(v.id).then((rows) => [v.id, rows]))).then((pairs) => {
+      if (!cancelled) setVariantCharts(Object.fromEntries(pairs));
+    });
+    return () => { cancelled = true; };
+  }, [variants]);
+  const chartVariants = variants.filter((v) => (variantCharts[v.id] || []).length > 0);
 
   const toggleVariant = (variant) => {
     setVariantQuantities((prev) => {
@@ -43,16 +54,22 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     setVariantQuantities((prev) => ({ ...prev, [variantId]: qty }));
   };
 
-  const sizes = hasVariants
-    ? [...new Set(variants.filter((v) => v.is_active).flatMap((v) => (Array.isArray(v.available_sizes) ? v.available_sizes : [])))]
-    : (Array.isArray(product?.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL']);
+  // Product without variants: sizes the admin ticked. With variants: sizes come from each variant's size chart.
+  const sizes = Array.isArray(product?.available_sizes) ? product.available_sizes : [];
+  const sizesFor = (v) => (variantCharts[v.id] || []).map((r) => r.size_label).filter(Boolean);
+  const [variantSizes, setVariantSizes] = useState({});
+  const sizeOfVariant = (v) => {
+    const options = sizesFor(v);
+    if (options.length === 0) return '';
+    return options.includes(variantSizes[v.id]) ? variantSizes[v.id] : options[0];
+  };
   const colors = Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black'];
 
-  const [size, setSize] = useState(sizes[0] || 'L');
+  const [size, setSize] = useState(sizes[0] || '');
   const [color, setColor] = useState(colors[0] || 'Deep Black');
 
   useEffect(() => {
-    if (sizes.length > 0 && !sizes.includes(size)) setSize(sizes[0]);
+    if (!sizes.includes(size)) setSize(sizes[0] || '');
   }, [sizes]);
   useEffect(() => {
     if (!colors.includes(color)) setColor(colors[0] || 'Deep Black');
@@ -86,7 +103,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const handleAddToCart = () => {
     if (isClosed || !canAdd) return;
     if (hasVariants) {
-      selectedVariants.forEach((v) => addToCart(product, size, v.name, variantQuantities[v.id], v));
+      selectedVariants.forEach((v) => addToCart(product, sizeOfVariant(v), v.name, variantQuantities[v.id], v));
     } else {
       addToCart(product, size, color, quantity, null);
     }
@@ -96,7 +113,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const handleBuyNow = () => {
     if (isClosed || !canAdd) return;
     if (hasVariants) {
-      selectedVariants.forEach((v) => addToCart(product, size, v.name, variantQuantities[v.id], v));
+      selectedVariants.forEach((v) => addToCart(product, sizeOfVariant(v), v.name, variantQuantities[v.id], v));
     } else {
       addToCart(product, size, color, quantity, null);
     }
@@ -164,17 +181,37 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 </p>
               </div>
 
-              {/* Size Chart Shortcut */}
-              <div className="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 flex items-center justify-between gap-2">
-                <span className="text-xs font-mono text-zinc-600 truncate">{t.unsureSize || 'ไม่แน่ใจขนาดไซส์?'}</span>
-                <button
-                  type="button"
-                  onClick={() => onOpenSizeChart(selectedVariants[0] || null)}
-                  className="text-xs font-bold text-zinc-900 underline hover:text-amber-600 shrink-0"
-                >
-                  {t.viewSizeChartBtn || 'ตารางไซส์ ↗'}
-                </button>
-              </div>
+              {/* Size Chart Shortcut — only variants that have a size chart */}
+              {product.show_size_chart !== false && chartVariants.length > 0 && (
+                <div className="p-2.5 bg-zinc-50 rounded-xl border border-zinc-200 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-mono text-zinc-600 truncate">{t.unsureSize || 'ไม่แน่ใจขนาดไซส์?'}</span>
+                    {chartVariants.length === 1 && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenSizeChart(chartVariants[0])}
+                        className="text-xs font-bold text-zinc-900 underline hover:text-amber-600 shrink-0"
+                      >
+                        {t.viewSizeChartBtn || 'ตารางไซส์ ↗'}
+                      </button>
+                    )}
+                  </div>
+                  {chartVariants.length > 1 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {chartVariants.map((v) => (
+                        <button
+                          key={v.id}
+                          type="button"
+                          onClick={() => onOpenSizeChart(v)}
+                          className="px-2.5 py-1 rounded-lg border border-zinc-300 bg-white text-xs font-bold text-zinc-900 hover:border-zinc-900 active:scale-95"
+                        >
+                          📏 {v.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -190,30 +227,58 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               />
             )}
 
-            {/* Size */}
-            <div>
-              <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
-                {hasVariants
-                  ? (t.stepSizeNoNum || 'เลือกไซส์ (Size):')
-                  : (t.step1Size || '1. เลือกไซส์ (Size):')}
-              </label>
-              <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                {sizes.map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => setSize(s)}
-                    className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
-                      size === s
-                        ? 'border-black bg-black text-white shadow-xs'
-                        : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                    }`}
-                  >
-                    {s}
-                  </button>
-                ))}
+            {/* Size — per selected variant, since each variant can offer different sizes */}
+            {hasVariants ? (
+              selectedVariants.map((v) => {
+                const options = sizesFor(v);
+                if (options.length === 0) return null;
+                return (
+                  <div key={v.id}>
+                    <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
+                      {(t.stepSizeNoNum || 'เลือกไซส์ (Size):')} <span className="text-amber-600">{v.name}</span>
+                    </label>
+                    <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                      {options.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setVariantSizes((prev) => ({ ...prev, [v.id]: s }))}
+                          className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                            sizeOfVariant(v) === s
+                              ? 'border-black bg-black text-white shadow-xs'
+                              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })
+            ) : sizes.length > 0 && (
+              <div>
+                <label className="text-xs font-mono font-bold text-zinc-800 block mb-1.5">
+                  {t.step1Size || '1. เลือกไซส์ (Size):'}
+                </label>
+                <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                  {sizes.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSize(s)}
+                      className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
+                        size === s
+                          ? 'border-black bg-black text-white shadow-xs'
+                          : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Color — only when this product has no variants; the variant itself already determines the look */}
             {!hasVariants && (

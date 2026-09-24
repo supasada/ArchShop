@@ -1,20 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { STORE_CONFIG } from '../config/storeConfig';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../config/supabase';
 
 export default function SizeChartModal({ isOpen, onClose, variant }) {
   const { t } = useLanguage();
-  const [sizeRows, setSizeRows] = useState(STORE_CONFIG.sizeChart);
   const [variantRows, setVariantRows] = useState([]);
   const [variantColumns, setVariantColumns] = useState([]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    api.getSizeChart().then((rows) => {
-      if (rows.length > 0) setSizeRows(rows);
-    });
-  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen || !variant?.id) {
@@ -84,30 +75,7 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
                   </tbody>
                 </table>
               ) : (
-                <table className="w-full border-collapse text-left text-xs font-mono">
-                  <thead>
-                    <tr className="bg-zinc-900 text-white font-bold">
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sizeCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.chestCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.lengthCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.sleeveCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.armholeCol}</th>
-                      <th className="py-3 px-3 sm:px-4 text-center whitespace-nowrap">{t.shoulderCol}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-100">
-                    {sizeRows.map((row) => (
-                      <tr key={row.size} className="hover:bg-zinc-50 text-center transition-colors">
-                        <td className="py-3 px-3 sm:px-4 font-bold text-zinc-950 bg-zinc-50/70">{row.size}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-900 font-bold">{row.chest}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.length}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.sleeve}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.armhole}</td>
-                        <td className="py-3 px-3 sm:px-4 text-zinc-700">{row.shoulder}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="p-6 text-center text-xs font-mono text-zinc-500">ยังไม่มีตารางไซส์สำหรับตัวเลือกนี้</div>
               )}
             </div>
 

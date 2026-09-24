@@ -6,7 +6,6 @@ import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
 import PromotionManager from '../components/admin/PromotionManager';
-import SizeChartManager from '../components/admin/SizeChartManager';
 import CountdownEventManager from '../components/admin/CountdownEventManager';
 
 
@@ -43,6 +42,8 @@ export default function AdminView({ onBackToStore }) {
     image_front_url: '',
     image_back_url: '',
     is_active: true,
+    show_promo_badge: true,
+    show_size_chart: true,
     order_deadline: ''
   });
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -75,20 +76,7 @@ export default function AdminView({ onBackToStore }) {
 
   // Deadline Settings Modal
   const [isDeadlineModalOpen, setIsDeadlineModalOpen] = useState(false);
-  const [sizeChartOptions, setSizeChartOptions] = useState(['S', 'M', 'L', 'XL', '2XL', '3XL']);
-
-  const reloadSizeChartOptions = () => {
-    api.getSizeChart().then((rows) => {
-      if (rows.length > 0) setSizeChartOptions(rows.map((r) => r.size));
-    });
-  };
-
-  useEffect(() => {
-    reloadSizeChartOptions();
-    const sub = api.subscribeTable('size_chart', reloadSizeChartOptions);
-    return () => sub.unsubscribe();
-  }, []);
-
+  const sizeChartOptions = STORE_CONFIG.sizeOptions;
 
   // Check auth session
   useEffect(() => {
@@ -296,6 +284,8 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: '',
       image_back_url: '',
       is_active: true,
+      show_promo_badge: true,
+      show_size_chart: true,
       order_deadline: formatDateToInputLocal(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
     });
     setIsProductModalOpen(true);
@@ -312,6 +302,8 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: p.image_front_url || '',
       image_back_url: p.image_back_url || '',
       is_active: p.is_active ?? true,
+      show_promo_badge: p.show_promo_badge ?? true,
+      show_size_chart: p.show_size_chart ?? true,
       order_deadline: p.order_deadline ? formatDateToInputLocal(p.order_deadline) : ''
     });
     setIsProductModalOpen(true);
@@ -343,6 +335,8 @@ export default function AdminView({ onBackToStore }) {
       image_front_url: productFormData.image_front_url || '/assets/images/arch_shirt_front.jpg',
       image_back_url: productFormData.image_back_url || '',
       is_active: Boolean(productFormData.is_active),
+      show_promo_badge: Boolean(productFormData.show_promo_badge),
+      show_size_chart: Boolean(productFormData.show_size_chart),
       order_deadline: parsedDeadline
     };
 
@@ -575,14 +569,6 @@ export default function AdminView({ onBackToStore }) {
           }`}
         >
           โปรโมชั่น
-        </button>
-        <button
-          onClick={() => setActiveTab('sizechart')}
-          className={`px-4 py-2.5 text-sm font-bold border-b-2 transition-colors ${
-            activeTab === 'sizechart' ? 'border-zinc-900 text-zinc-900 bg-zinc-50 rounded-t-xl' : 'border-transparent text-zinc-500 hover:text-zinc-900'
-          }`}
-        >
-          ตารางไซส์
         </button>
         <button
           onClick={() => setActiveTab('countdown')}
@@ -917,10 +903,6 @@ export default function AdminView({ onBackToStore }) {
         <PromotionManager products={products} />
       )}
 
-      {activeTab === 'sizechart' && (
-        <SizeChartManager />
-      )}
-
       {activeTab === 'countdown' && (
         <CountdownEventManager />
       )}
@@ -1169,6 +1151,26 @@ export default function AdminView({ onBackToStore }) {
                   onChange={(e) => setProductFormData({ ...productFormData, description: e.target.value })}
                   className="w-full px-3.5 py-2 bg-zinc-50 border rounded-xl"
                 ></textarea>
+              </div>
+
+              {/* Display toggles */}
+              <div className="flex flex-col gap-2 p-3 bg-zinc-50 border rounded-xl">
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={productFormData.show_promo_badge}
+                    onChange={(e) => setProductFormData({ ...productFormData, show_promo_badge: e.target.checked })}
+                  />
+                  แสดงป้ายโปรโมชันบนการ์ดสินค้า
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={productFormData.show_size_chart}
+                    onChange={(e) => setProductFormData({ ...productFormData, show_size_chart: e.target.checked })}
+                  />
+                  แสดงลิงก์ "ตารางเทียบไซส์เสื้อ"
+                </label>
               </div>
 
               {/* Sizes Selector */}

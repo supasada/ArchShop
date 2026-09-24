@@ -1,14 +1,33 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../config/supabase';
 import { formatCurrency, formatDateThai } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext';
 
 export default function ProductCard({ product, onOrderClick }) {
   const { t, lang } = useLanguage();
+  const { promotions } = useCart();
   const [showBack, setShowBack] = useState(false);
 
   const frontImg = product.image_front_url || '/assets/images/arch_shirt_front.jpg';
   const backImg = product.image_back_url || frontImg;
-  const sizes = Array.isArray(product.available_sizes) ? product.available_sizes : ['S', 'M', 'L', 'XL', '2XL'];
+  const sizes = Array.isArray(product.available_sizes) ? product.available_sizes : [];
+
+  const [variantIds, setVariantIds] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    api.getVariants(product.id).then((list) => { if (!cancelled) setVariantIds(list.map((v) => v.id)); });
+    return () => { cancelled = true; };
+  }, [product.id]);
+
+  const refMatches = (r) => r.product_id === product.id || (r.variant_id && variantIds.includes(r.variant_id));
+  // Only promotions this product can actually take part in
+  const eligiblePromos = product.show_promo_badge === false ? [] : (promotions || []).filter((p) => {
+    if (!p.is_active) return false;
+    if (p.type === 'bundle') return (p.bundle_items || []).some(refMatches);
+    return p.applies_to_all || (p.scope_variants || []).some(refMatches);
+  });
+
   
   const effectiveDeadline = product.order_deadline || localStorage.getItem('arch_custom_deadline');
 
@@ -50,9 +69,13 @@ export default function ProductCard({ product, onOrderClick }) {
           {formatCurrency(product.price)}
         </div>
 
-        {!isClosed && (
-          <div className="absolute top-3 right-3 bg-amber-500 text-zinc-950 font-mono text-[10.5px] font-black px-2.5 py-1 rounded-lg shadow-sm border border-amber-400">
-            2 ตัว 399.-
+        {!isClosed && eligiblePromos.length > 0 && (
+          <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+            {eligiblePromos.map((promo) => (
+              <div key={promo.id} className="bg-amber-500 text-zinc-950 font-mono text-[10.5px] font-black px-2.5 py-1 rounded-lg shadow-sm border border-amber-400">
+                {promo.name}
+              </div>
+            ))}
           </div>
         )}
 
@@ -81,14 +104,14 @@ export default function ProductCard({ product, onOrderClick }) {
             {product.description || 'OFFICIAL MERCHANDISE // ARCH CMU 2026'}
           </p>
 
-          <div className="mt-4 pt-4 border-t border-zinc-100 flex flex-wrap items-center gap-1.5">
+          {sizes.length > 0 && <div className="mt-4 pt-4 border-t border-zinc-100 flex flex-wrap items-center gap-1.5">
             <span className="text-[11px] font-mono text-zinc-400 mr-1">{t.selectSizeLabel}:</span>
             {sizes.map((s) => (
               <span key={s} className="text-[11px] font-mono px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded border border-zinc-200">
                 {s}
               </span>
             ))}
-          </div>
+          </div>}
         </div>
 
         <div className="mt-6 pt-4 border-t border-zinc-100">

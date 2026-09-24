@@ -24,6 +24,7 @@ export default function VariantManager({ productId }) {
 
   useEffect(() => { load(); }, [productId]);
 
+
   useEffect(() => {
     const subs = [
       api.subscribeTable('product_variants', reloadQuiet),
@@ -39,6 +40,7 @@ export default function VariantManager({ productId }) {
       name: form.name.trim(),
       price: Number(form.price),
       stock_limit: form.stock_limit ? Number(form.stock_limit) : null,
+      available_sizes: [],
       sort_order: variants.length
     });
     setForm({ name: '', price: '', stock_limit: '' });

@@ -3,13 +3,58 @@ import HeroBanner from '../components/HeroBanner';
 import ProductCard from '../components/ProductCard';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { useLanguage } from '../context/LanguageContext';
+import { useCart } from '../context/CartContext';
 
-export default function StoreView({ products, loading, onSelectProduct, onOpenSizeChart }) {
+export default function StoreView({ products, loading, onSelectProduct }) {
   const { t, lang } = useLanguage();
+  const { promotions } = useCart();
+  // De-duplicate by name so repeated promotions don't stack identical banners
+  const seen = new Set();
+  const promoCards = (promotions || [])
+    .filter((p) => p.is_active)
+    .filter((p) => (seen.has(p.name) ? false : seen.add(p.name)))
+    .map((p) => {
+      const money = (v) => Number(v).toLocaleString();
+      if (p.type === 'quantity_break' && p.quantity && p.bundle_price) {
+        return { ...p, big: `฿${money(p.bundle_price)}`, tag: `ซื้อ ${p.quantity} ชิ้น`, detail: `ซื้อครบ ${p.quantity} ชิ้น ราคาพิเศษ ${money(p.bundle_price)} บาท` };
+      }
+      if (p.type === 'bundle' && p.discount_value) {
+        return p.discount_type === 'fixed_price'
+          ? { ...p, big: `฿${money(p.discount_value)}`, tag: 'ซื้อคู่', detail: `ซื้อครบชุด ราคาชุดละ ${money(p.discount_value)} บาท` }
+          : { ...p, big: `-฿${money(p.discount_value)}`, tag: 'ซื้อคู่', detail: `ซื้อครบชุด ลดทันที ${money(p.discount_value)} บาท` };
+      }
+      return { ...p, big: '🎁', tag: 'โปรโมชั่น', detail: '' };
+    });
 
   return (
     <div>
       <HeroBanner />
+
+      {promoCards.length > 0 && (
+        <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+          <div className="flex items-center gap-2 mb-3 text-[11px] sm:text-xs font-mono font-bold uppercase tracking-widest text-zinc-500">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            โปรโมชั่นพิเศษ · SPECIAL OFFERS
+          </div>
+          <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
+            {promoCards.map((promo) => (
+              <div
+                key={promo.id}
+                className="flex items-stretch overflow-hidden rounded-2xl bg-zinc-900 text-white shadow-lg border border-zinc-800"
+              >
+                <div className="shrink-0 w-28 sm:w-36 flex flex-col items-center justify-center px-2 py-4 bg-gradient-to-br from-amber-300 to-amber-500 text-zinc-950">
+                  <span className="text-[10px] font-mono font-black uppercase tracking-wide">{promo.tag}</span>
+                  <span className="text-2xl sm:text-3xl font-black leading-tight font-mono">{promo.big}</span>
+                </div>
+                <div className="min-w-0 flex-1 px-4 sm:px-5 py-4 flex flex-col justify-center border-l-2 border-dashed border-zinc-700">
+                  <div className="text-base sm:text-xl font-black leading-snug tracking-tight break-words">{promo.name}</div>
+                  {promo.detail && <div className="text-xs sm:text-sm font-mono text-amber-300/90 mt-1">{promo.detail}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Catalog Section */}
       <section className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-8 sm:py-16">
@@ -22,13 +67,6 @@ export default function StoreView({ products, loading, onSelectProduct, onOpenSi
               {t.catalogHeaderTitle || 'รายการเสื้อเปิดรับจอง (Pre-Order Products)'}
             </h2>
           </div>
-          <button
-            type="button"
-            onClick={onOpenSizeChart}
-            className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold text-zinc-700 bg-white hover:bg-zinc-50 border border-zinc-200 rounded-xl shadow-xs active:scale-95 transition-all"
-          >
-            <span>{t.viewSizeChartBtnText || '📏 ตารางขนาดไซส์ (Size Chart)'}</span>
-          </button>
         </div>
 
         {loading ? (

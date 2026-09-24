@@ -5,7 +5,7 @@ import { api } from '../config/supabase';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 
-export default function CartModal({ isOpen, onClose, onSuccess, onOpenSizeChart }) {
+export default function CartModal({ isOpen, onClose, onSuccess }) {
   const { t } = useLanguage();
   const { 
     cartItems, 

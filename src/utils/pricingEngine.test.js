@@ -94,4 +94,23 @@ describe('computePricing', () => {
     const result = computePricing(cartItems, promotions);
     expect(result.subtotal).toBe(438);
   });
+
+  it('lets one bundle slot accept several alternative variants', () => {
+    const cartItems = [
+      { productId: 'pA', variantId: 'vA2', price: 300, quantity: 1 },
+      { productId: 'pB', variantId: 'vB', price: 300, quantity: 1 }
+    ];
+    const promotions = [{
+      id: 'promo3', name: 'A(any)+B', type: 'bundle', is_active: true, priority: 0,
+      discount_type: 'fixed_amount', discount_value: 40,
+      bundle_items: [
+        { variant_id: 'vA1', slot: 0, required_qty: 1 },
+        { variant_id: 'vA2', slot: 0, required_qty: 1 },
+        { variant_id: 'vB', slot: 1, required_qty: 1 }
+      ]
+    }];
+    const result = computePricing(cartItems, promotions);
+    expect(result.subtotal).toBe(560);
+    expect(result.appliedPromotions).toHaveLength(1);
+  });
 });

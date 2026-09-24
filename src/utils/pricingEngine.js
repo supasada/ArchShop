@@ -2,8 +2,28 @@ function unitKey(item) {
   return item.variantId ? `v:${item.variantId}` : `p:${item.productId}`;
 }
 
-function scopeKey(ref) {
-  return ref.variant_id ? `v:${ref.variant_id}` : `p:${ref.product_id}`;
+// A unit matches a promo reference by exact variant, or by product (any variant of it)
+function unitMatchesRef(unit, ref) {
+  if (ref.variant_id) return unit.variantId === ref.variant_id;
+  return unit.productId === ref.product_id;
+}
+
+// Bundle rows sharing a `slot` are alternatives for one slot; rows without a slot are their own slot
+function groupBundleSlots(items) {
+  const slots = [];
+  const bySlot = new Map();
+  items.forEach((bi) => {
+    if (bi.slot == null) {
+      slots.push({ refs: [bi], need: bi.required_qty || 1 });
+    } else if (bySlot.has(bi.slot)) {
+      bySlot.get(bi.slot).refs.push(bi);
+    } else {
+      const slot = { refs: [bi], need: bi.required_qty || 1 };
+      bySlot.set(bi.slot, slot);
+      slots.push(slot);
+    }
+  });
+  return slots;
 }
 
 export function computePricing(cartItems, promotions = []) {
@@ -12,7 +32,7 @@ export function computePricing(cartItems, promotions = []) {
     const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
     const price = Number(item.price) || 0;
     for (let i = 0; i < qty; i++) {
-      pool.push({ key: unitKey(item), price });
+      pool.push({ key: unitKey(item), productId: item.productId, variantId: item.variantId || null, price });
     }
   });
 
@@ -28,20 +48,19 @@ export function computePricing(cartItems, promotions = []) {
   activePromos
     .filter((p) => p.type === 'bundle')
     .forEach((promo) => {
-      const items = promo.bundle_items || [];
-      if (items.length === 0) return;
+      const slots = groupBundleSlots(promo.bundle_items || []);
+      if (slots.length === 0) return;
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const consumedIdx = [];
         let complete = true;
 
-        for (const bi of items) {
-          const key = scopeKey(bi);
-          const need = bi.required_qty || 1;
+        for (const slot of slots) {
+          const need = slot.need;
           const available = pool
             .map((u, idx) => ({ ...u, idx }))
-            .filter((u) => u.key === key && !consumedIdx.includes(u.idx))
+            .filter((u) => slot.refs.some((r) => unitMatchesRef(u, r)) && !consumedIdx.includes(u.idx))
             .sort((a, b) => b.price - a.price);
 
           if (available.length < need) {
@@ -76,10 +95,9 @@ export function computePricing(cartItems, promotions = []) {
       if (promo.applies_to_all) {
         eligibleIdx = pool.map((_, idx) => idx);
       } else {
-        const scopeKeys = (promo.scope_variants || []).map(scopeKey);
         eligibleIdx = pool
           .map((u, idx) => ({ u, idx }))
-          .filter(({ u }) => scopeKeys.includes(u.key))
+          .filter(({ u }) => (promo.scope_variants || []).some((r) => unitMatchesRef(u, r)))
           .map(({ idx }) => idx);
       }
       eligibleIdx.sort((a, b) => pool[b].price - pool[a].price);

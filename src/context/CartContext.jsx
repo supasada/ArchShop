@@ -42,7 +42,7 @@ export function CartProvider({ children }) {
 
   const addToCart = (product, size, color, quantity = 1, variant = null) => {
     const qty = Math.max(1, parseInt(quantity, 10) || 1);
-    const chosenSize = size || 'L';
+    const chosenSize = size || '-';
     const chosenColor = color || (product.available_colors?.[0] || 'Deep Black');
     const variantId = variant?.id || null;
     const itemKey = `${product.id}_${variantId || 'base'}_${chosenSize}_${chosenColor}`;
@@ -76,7 +76,7 @@ export function CartProvider({ children }) {
       }
     });
 
-    showToast(`🛒 เพิ่ม ${variant?.name ? `${product.name} (${variant.name})` : product.name} (ไซส์ ${chosenSize}) ลงตะกร้าแล้ว`);
+    showToast(`🛒 เพิ่ม ${variant?.name ? `${product.name} (${variant.name})` : product.name} ${chosenSize !== '-' ? `(ไซส์ ${chosenSize})` : ''} ลงตะกร้าแล้ว`);
   };
 
 

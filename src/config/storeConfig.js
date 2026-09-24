@@ -95,11 +95,5 @@ export const STORE_CONFIG = {
     'บุคคลภายนอกทั่วไป (General Public)'
   ],
 
-  sizeChart: [
-    { size: 'S', chest: '32"', length: '23"', sleeve: '6"', armhole: '14"', shoulder: '13"' },
-    { size: 'M', chest: '36"', length: '25"', sleeve: '7"', armhole: '15.5"', shoulder: '15"' },
-    { size: 'L', chest: '40"', length: '27"', sleeve: '8"', armhole: '17.5"', shoulder: '17"' },
-    { size: 'XL', chest: '44"', length: '29"', sleeve: '9"', armhole: '19"', shoulder: '19"' },
-    { size: '2XL', chest: '48"', length: '31"', sleeve: '10"', armhole: '21"', shoulder: '21"' }
-  ]
+  sizeOptions: ['S', 'M', 'L', 'XL', '2XL', '3XL']
 };

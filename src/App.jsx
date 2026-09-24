@@ -120,7 +120,6 @@ function MainApp() {
             products={products}
             loading={loading}
             onSelectProduct={(p) => setSelectedProduct(p)}
-            onOpenSizeChart={() => { setSizeChartVariant(null); setIsSizeChartOpen(true); }}
           />
         )}
       </main>
@@ -162,7 +161,6 @@ function MainApp() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         onSuccess={handleOrderSuccess}
-        onOpenSizeChart={() => { setSizeChartVariant(null); setIsSizeChartOpen(true); }}
       />
 
       {/* Official Printable Receipt Modal */}
