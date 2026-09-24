@@ -29,8 +29,8 @@ export const translations = {
 
     // Hero Banner
     officialMerch: 'OFFICIAL MERCHANDISE // ARCH 2026',
-    heroTitle1: 'ARCHITECTURE',
-    heroTitle2: 'FACULTY T-SHIRT',
+    heroTitle1: 'smoarchcmu',
+    heroTitle2: 'pre-order',
     deadlinePrefix: '🎯 กำหนดปิดรับจอง:',
     eventCountdownTag: 'EVENT COUNTDOWN',
     eventDeadlinePrefix: '🎯 กำหนด:',
@@ -223,8 +223,8 @@ export const translations = {
 
     // Hero Banner
     officialMerch: 'OFFICIAL MERCHANDISE // ARCH 2026',
-    heroTitle1: 'ARCHITECTURE',
-    heroTitle2: 'FACULTY T-SHIRT',
+    heroTitle1: 'smoarchcmu',
+    heroTitle2: 'pre-order',
     deadlinePrefix: '🎯 Pre-Order Deadline:',
     eventCountdownTag: 'EVENT COUNTDOWN',
     eventDeadlinePrefix: '🎯 Deadline:',
@@ -417,8 +417,8 @@ export const translations = {
 
     // Hero Banner
     officialMerch: '官方预售纪念品 // 建筑学院 2026',
-    heroTitle1: 'ARCHITECTURE',
-    heroTitle2: 'FACULTY T-SHIRT',
+    heroTitle1: 'smoarchcmu',
+    heroTitle2: 'pre-order',
     deadlinePrefix: '🎯 预订截止时间：',
     eventCountdownTag: '活动倒计时',
     eventDeadlinePrefix: '🎯 截止时间：',
