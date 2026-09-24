@@ -16,8 +16,10 @@ export default function ProductCard({ product, onOrderClick }) {
   const [variantIds, setVariantIds] = useState([]);
   useEffect(() => {
     let cancelled = false;
-    api.getVariants(product.id).then((list) => { if (!cancelled) setVariantIds(list.map((v) => v.id)); });
-    return () => { cancelled = true; };
+    const load = () => api.getVariants(product.id).then((list) => { if (!cancelled) setVariantIds(list.map((v) => v.id)); });
+    load();
+    const sub = api.subscribeTable('product_variants', load);
+    return () => { cancelled = true; sub.unsubscribe(); };
   }, [product.id]);
 
   const refMatches = (r) => r.product_id === product.id || (r.variant_id && variantIds.includes(r.variant_id));

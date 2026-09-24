@@ -13,7 +13,9 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
       setVariantColumns([]);
       return;
     }
-    api.getVariantSizeRows(variant.id).then((rows) => {
+    let cancelled = false;
+    const load = () => api.getVariantSizeRows(variant.id).then((rows) => {
+      if (cancelled) return;
       const cols = [];
       rows.forEach((row) => {
         Object.keys(row.attributes || {}).forEach((key) => {
@@ -23,6 +25,9 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
       setVariantRows(rows);
       setVariantColumns(cols);
     });
+    load();
+    const sub = api.subscribeTable('variant_size_rows', load);
+    return () => { cancelled = true; sub.unsubscribe(); };
   }, [isOpen, variant?.id]);
 
   if (!isOpen) return null;

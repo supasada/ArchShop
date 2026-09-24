@@ -3,7 +3,7 @@ import { formatCurrency } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../config/supabase';
-import { computePricing } from '../utils/pricingEngine';
+import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
@@ -12,17 +12,31 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const [quantity, setQuantity] = useState(1);
   const [showBack, setShowBack] = useState(false);
+  const [viewImage, setViewImage] = useState(null); // image chosen from the thumbnails
 
   const [variants, setVariants] = useState([]);
   const [variantQuantities, setVariantQuantities] = useState({});
 
+  const [chartVersion, setChartVersion] = useState(0);
+
   useEffect(() => {
     if (!product?.id) return;
-    api.getVariants(product.id).then((list) => {
-      setVariants(list);
-      setVariantQuantities({});
-      setVariantSizes({});
-    });
+    let cancelled = false;
+    const load = () => api.getVariants(product.id).then((list) => { if (!cancelled) setVariants(list); });
+
+    // fresh product: reset the selection
+    setVariantQuantities({});
+    setVariantSizes({});
+    setViewImage(null);
+    load();
+
+    // live updates (admin edits) keep the current selection
+    const subs = [
+      api.subscribeTable('product_variants', load),
+      api.subscribeTable('product_variant_images', load),
+      api.subscribeTable('variant_size_rows', () => setChartVersion((n) => n + 1))
+    ];
+    return () => { cancelled = true; subs.forEach((s) => s.unsubscribe()); };
   }, [product?.id]);
 
   const [variantCharts, setVariantCharts] = useState({}); // variantId -> size chart rows
@@ -35,7 +49,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
       if (!cancelled) setVariantCharts(Object.fromEntries(pairs));
     });
     return () => { cancelled = true; };
-  }, [variants]);
+  }, [variants, chartVersion]);
   const chartVariants = variants.filter((v) => (variantCharts[v.id] || []).length > 0);
 
   const toggleVariant = (variant) => {
@@ -45,6 +59,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
         delete next[variant.id];
       } else {
         next[variant.id] = 1;
+        // show the variant that was just picked, not always the first one
+        setViewImage(variant.images?.[0]?.image_url || null);
       }
       return next;
     });
@@ -96,7 +112,14 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const canAdd = hasVariants ? selectedVariants.length > 0 : true;
 
+  const thumbs = [
+    product.image_front_url && { url: product.image_front_url, label: 'หน้า' },
+    product.image_back_url && { url: product.image_back_url, label: 'หลัง' },
+    ...variants.flatMap((v) => (v.images || []).map((img, i) => ({ url: img.image_url, label: i === 0 ? v.name : `${v.name} ${i + 1}` })))
+  ].filter(Boolean);
+
   const displayImage =
+    viewImage ||
     selectedVariants[0]?.images?.[0]?.image_url ||
     (showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg'));
 
@@ -147,15 +170,16 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
           {/* Product Overview Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 sm:gap-6">
 
-            {/* Image Box */}
-            <div className="sm:col-span-5 relative aspect-square bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 shadow-xs">
+            {/* Image Box + thumbnails */}
+            <div className="sm:col-span-5 space-y-2">
+            <div className="relative aspect-square bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 shadow-xs">
               <img
                 src={displayImage}
                 alt={product.name}
                 className="w-full h-full object-cover transition-opacity duration-300"
                 onError={(e) => { e.target.src = '/assets/images/arch_shirt_front.jpg'; }}
               />
-              {selectedVariants.length === 0 && product.image_back_url && (
+              {!viewImage && selectedVariants.length === 0 && product.image_back_url && (
                 <button
                   type="button"
                   onClick={() => setShowBack(!showBack)}
@@ -163,6 +187,23 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 >
                   {showBack ? (t.viewFront || 'ดูด้านหน้า') : (t.viewBack || 'ดูด้านหลัง')}
                 </button>
+              )}
+            </div>
+
+              {thumbs.length > 1 && (
+                <div className="flex gap-1.5 overflow-x-auto pb-1">
+                  {thumbs.map((th, i) => (
+                    <button
+                      key={`${th.url}-${i}`}
+                      type="button"
+                      onClick={() => setViewImage(th.url)}
+                      title={th.label}
+                      className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${displayImage === th.url ? 'border-zinc-900' : 'border-zinc-200 hover:border-zinc-400'}`}
+                    >
+                      <img src={th.url} alt={th.label} className="w-full h-full object-cover" />
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
 
@@ -347,7 +388,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
             </div>
             {savings > 0 && (
               <div className="flex items-center justify-between pt-1 border-t border-zinc-800 text-[11px] text-emerald-400 font-bold">
-                <span>🎉 {preview.appliedPromotions.map((p) => p.name).join(', ')}</span>
+                <span>🎉 {summarizePromotions(preview.appliedPromotions)}</span>
                 <span>{t.saveAmountLabel || 'ประหยัดไป'} {formatCurrency(savings)}</span>
               </div>
             )}

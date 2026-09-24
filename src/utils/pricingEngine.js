@@ -26,6 +26,32 @@ function groupBundleSlots(items) {
   return slots;
 }
 
+// Assign pool units to every required slot-unit with bipartite matching, so a unit that fits
+// several slots is never greedily spent on the wrong one. Higher-priced units are tried first.
+// Returns the pool indexes of one complete set, or null when no complete set exists.
+function findBundleSet(pool, slots) {
+  const requirements = slots.flatMap((slot) => Array.from({ length: slot.need }, () => slot));
+  const order = pool.map((_, idx) => idx).sort((a, b) => pool[b].price - pool[a].price);
+  const owner = new Map(); // pool index -> requirement index
+
+  const assign = (req, seen) => {
+    for (const idx of order) {
+      if (seen.has(idx) || !requirements[req].refs.some((r) => unitMatchesRef(pool[idx], r))) continue;
+      seen.add(idx);
+      if (!owner.has(idx) || assign(owner.get(idx), seen)) {
+        owner.set(idx, req);
+        return true;
+      }
+    }
+    return false;
+  };
+
+  for (let req = 0; req < requirements.length; req++) {
+    if (!assign(req, new Set())) return null;
+  }
+  return [...owner.keys()];
+}
+
 export function computePricing(cartItems, promotions = []) {
   const pool = [];
   (cartItems || []).forEach((item) => {
@@ -53,22 +79,8 @@ export function computePricing(cartItems, promotions = []) {
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const consumedIdx = [];
-        let complete = true;
-
-        for (const slot of slots) {
-          const need = slot.need;
-          const available = pool
-            .map((u, idx) => ({ ...u, idx }))
-            .filter((u) => slot.refs.some((r) => unitMatchesRef(u, r)) && !consumedIdx.includes(u.idx))
-            .sort((a, b) => b.price - a.price);
-
-          if (available.length < need) {
-            complete = false;
-            break;
-          }
-          for (let n = 0; n < need; n++) consumedIdx.push(available[n].idx);
-        }
+        const consumedIdx = findBundleSet(pool, slots);
+        const complete = consumedIdx !== null;
 
         if (!complete) break;
 
@@ -124,4 +136,11 @@ export function computePricing(cartItems, promotions = []) {
     discount: Math.max(0, rawSubtotal - subtotal),
     appliedPromotions
   };
+}
+
+// "Promo A ×2, Promo B" — one label per promotion even when it applied to several sets
+export function summarizePromotions(appliedPromotions = []) {
+  const counts = new Map();
+  appliedPromotions.forEach((p) => counts.set(p.name, (counts.get(p.name) || 0) + 1));
+  return [...counts].map(([name, n]) => (n > 1 ? `${name} ×${n}` : name)).join(', ');
 }

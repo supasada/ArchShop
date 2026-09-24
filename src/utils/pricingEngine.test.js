@@ -113,4 +113,25 @@ describe('computePricing', () => {
     expect(result.subtotal).toBe(560);
     expect(result.appliedPromotions).toHaveLength(1);
   });
+
+  it('finds every bundle set when slots overlap (no greedy mis-assignment)', () => {
+    const cartItems = [
+      { productId: 'pB', variantId: 'vF', price: 760, quantity: 1 },
+      { productId: 'pA', variantId: 'vUp', price: 730, quantity: 2 },
+      { productId: 'pB', variantId: 'vM', price: 730, quantity: 1 }
+    ];
+    const promotions = [{
+      id: 'promo4', name: 'ขึ้นดอย+ศิลป์จุ่ม', type: 'bundle', is_active: true, priority: 0,
+      discount_type: 'fixed_amount', discount_value: 70,
+      bundle_items: [
+        { variant_id: 'vM', slot: 0, required_qty: 1 },
+        { variant_id: 'vUp', slot: 0, required_qty: 1 },
+        { variant_id: 'vF', slot: 1, required_qty: 1 },
+        { variant_id: 'vUp', slot: 1, required_qty: 1 }
+      ]
+    }];
+    const result = computePricing(cartItems, promotions);
+    expect(result.appliedPromotions).toHaveLength(2);
+    expect(result.discount).toBe(140);
+  });
 });
