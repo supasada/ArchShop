@@ -8,6 +8,12 @@
 // What must follow the "]" closing an item's [size/color]: " xQty" then " | " or the final "]"
 const ITEM_TAIL = /\] x\d+( \| |\])/y;
 
+// Notes are written by the customer's browser, so anyone can post an order with a
+// forged summary. Bound how much of it can reach the admin UI.
+const MAX_ITEMS_PER_ORDER = 50;
+const MAX_ORPHAN_NAME_LENGTH = 80;
+const MAX_ORPHAN_CHIPS = 30;
+
 // Item names from the leading "[Name [size/color] xQty | ...]" summary of notes.
 // Hand-rolled single forward pass: notes are customer-written, so a backtracking
 // regex here could be made to freeze the admin page.
@@ -16,7 +22,7 @@ function parseSummaryItemNames(notes) {
   if (!notes.startsWith('[')) return names;
   let start = 1;
   let search = start;
-  while (search < notes.length) {
+  while (search < notes.length && names.length < MAX_ITEMS_PER_ORDER) {
     const nameEnd = notes.indexOf(' [', search);
     if (nameEnd === -1) break;
     if (nameEnd === start) { search = start + 1; continue; }
@@ -53,7 +59,11 @@ function findProductByItemName(itemName, products) {
 // Filter key for a product that no longer exists (deleted) or was renamed after the
 // order was placed: all we have left is the name saved in the order's notes.
 const ORPHAN_PREFIX = 'name:';
-const orphanKey = (itemName) => ORPHAN_PREFIX + itemName.split(' - ')[0].trim();
+export const isOrphanKey = (key) => typeof key === 'string' && key.startsWith(ORPHAN_PREFIX);
+const orphanKey = (itemName) => {
+  const name = itemName.split(' - ')[0].trim();
+  return name && name.length <= MAX_ORPHAN_NAME_LENGTH ? ORPHAN_PREFIX + name : null;
+};
 
 /**
  * Every product in an order, as filter keys: a product id when the product still
@@ -71,22 +81,29 @@ export function getOrderProductKeys(order, products = []) {
     if (prod) keys.add(prod.id);
     // product_id is the first cart item, so a first name that no longer matches
     // just means that product was renamed; it is already counted above.
-    else if (!(index === 0 && knownProductId)) keys.add(orphanKey(itemName));
+    else if (!(index === 0 && knownProductId)) {
+      const key = orphanKey(itemName);
+      if (key) keys.add(key);
+    }
   });
   return [...keys];
 }
 
-/** Products found in orders but missing from the product list, for extra filter chips. */
+/**
+ * Products found in orders but missing from the product list, for extra filter chips.
+ * Most-ordered first and capped, so junk names from forged orders cannot flood the UI.
+ */
 export function listOrphanProducts(orders = [], products = []) {
-  const found = new Map();
+  const counts = new Map();
   for (const order of orders) {
     for (const key of getOrderProductKeys(order, products)) {
-      if (key.startsWith(ORPHAN_PREFIX) && !found.has(key)) {
-        found.set(key, { id: key, name: key.slice(ORPHAN_PREFIX.length) });
-      }
+      if (isOrphanKey(key)) counts.set(key, (counts.get(key) || 0) + 1);
     }
   }
-  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
+    .slice(0, MAX_ORPHAN_CHIPS)
+    .map(([key]) => ({ id: key, name: key.slice(ORPHAN_PREFIX.length) }));
 }
 
 /**

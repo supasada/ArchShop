@@ -76,6 +76,23 @@ describe('listOrphanProducts', () => {
     ];
     expect(listOrphanProducts(orders, products)).toEqual([{ id: 'name:เสื้อรุ่นเก่า', name: 'เสื้อรุ่นเก่า' }]);
   });
+
+  it('bounds what forged notes can inject into the admin UI', () => {
+    const many = Array.from({ length: 5000 }, (_, i) => `fake${i} [F/x] x1`).join(' | ');
+    const orders = [
+      { product_id: null, notes: `[${many}]` },
+      { product_id: null, notes: `[${'ก'.repeat(5000)} [F/x] x1]` }
+    ];
+    expect(getOrderProductKeys(orders[0], products).length).toBeLessThanOrEqual(50);
+    expect(getOrderProductKeys(orders[1], products)).toEqual([]);
+    expect(listOrphanProducts(orders, products).length).toBeLessThanOrEqual(30);
+  });
+
+  it('lists the most-ordered missing products first', () => {
+    const real = { product_id: null, notes: '[เสื้อรุ่นเก่า [L/ดำ] x1]' };
+    const junk = { product_id: null, notes: '[aaa [L/ดำ] x1]' };
+    expect(listOrphanProducts([junk, real, real], products)[0].name).toBe('เสื้อรุ่นเก่า');
+  });
 });
 
 describe('matchesProductFilter', () => {

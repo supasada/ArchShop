@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV } from '../utils/csvExport';
-import { getOrderProductKeys, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
+import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
@@ -704,7 +704,11 @@ export default function AdminView({ onBackToStore }) {
                     filteredOrders.map((order) => {
                       const prod = order.products || products.find(p => p.id === order.product_id);
                       const orderProductNames = getOrderProductKeys(order, products)
-                        .map((id) => filterableProducts.find((p) => p.id === id)?.name)
+                        .map((id) => {
+                          const name = filterableProducts.find((p) => p.id === id)?.name;
+                          // Name read from the customer's notes, not a product in the system
+                          return name && isOrphanKey(id) ? `${name} (ไม่อยู่ในรายการสินค้า)` : name;
+                        })
                         .filter(Boolean);
                       const isOrderBusy = actionLoadingId === order.id;
 
