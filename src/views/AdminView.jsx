@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV } from '../utils/csvExport';
-import { getOrderProductIds, matchesProductFilter } from '../utils/orderProducts';
+import { getOrderProductKeys, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
@@ -391,10 +391,14 @@ export default function AdminView({ onBackToStore }) {
     }
   };
 
+  // Products that appear in orders but are no longer in the product list (deleted/renamed)
+  const orphanProducts = listOrphanProducts(orders, products);
+  const filterableProducts = [...products, ...orphanProducts];
+
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all' && o.payment_status !== statusFilter) return false;
-    if (!matchesProductFilter(getOrderProductIds(o, products), productFilter, productFilterMode)) return false;
+    if (!matchesProductFilter(getOrderProductKeys(o, products), productFilter, productFilterMode)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -640,8 +644,9 @@ export default function AdminView({ onBackToStore }) {
               >
                 ทุกสินค้า
               </button>
-              {products.map((p) => {
+              {filterableProducts.map((p) => {
                 const on = productFilter.includes(p.id);
+                const isOrphan = orphanProducts.includes(p);
                 return (
                   <button
                     key={p.id}
@@ -653,7 +658,7 @@ export default function AdminView({ onBackToStore }) {
                         : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
                     }`}
                   >
-                    {on ? '✓ ' : ''}{p.name}
+                    {on ? '✓ ' : ''}{p.name}{isOrphan ? ' (ลบ/เปลี่ยนชื่อแล้ว)' : ''}
                   </button>
                 );
               })}
@@ -698,8 +703,8 @@ export default function AdminView({ onBackToStore }) {
                   ) : (
                     filteredOrders.map((order) => {
                       const prod = order.products || products.find(p => p.id === order.product_id);
-                      const orderProductNames = getOrderProductIds(order, products)
-                        .map((id) => products.find((p) => p.id === id)?.name)
+                      const orderProductNames = getOrderProductKeys(order, products)
+                        .map((id) => filterableProducts.find((p) => p.id === id)?.name)
                         .filter(Boolean);
                       const isOrderBusy = actionLoadingId === order.id;
 
@@ -728,7 +733,7 @@ export default function AdminView({ onBackToStore }) {
                           {/* 3. Product & Sizing */}
                           <td className="py-3.5 px-4">
                             <div className="font-bold text-zinc-900">
-                              {orderProductNames.length > 1 ? orderProductNames.join(' + ') : (prod?.name || order.product_name || 'เสื้อสโมสร')}
+                              {orderProductNames.length > 1 ? orderProductNames.join(' + ') : (prod?.name || order.product_name || orderProductNames[0] || 'เสื้อสโมสร')}
                             </div>
                             <div className="font-mono text-zinc-600 font-bold text-xs mt-0.5">
                               ไซส์: <span className="text-black bg-zinc-100 px-1.5 py-0.5 rounded">{order.size}</span> ({order.color}) × {order.quantity}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getOrderProductIds, matchesProductFilter } from './orderProducts';
+import { getOrderProductKeys, listOrphanProducts, matchesProductFilter } from './orderProducts';
 
 const products = [
   { id: 'sash', name: 'ผ้าคาด' },
@@ -16,42 +16,70 @@ const sashAndDoi = {
 const sashOnly = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x2]' };
 const doiOnly = { product_id: 'doi', notes: null };
 
-describe('getOrderProductIds', () => {
+describe('getOrderProductKeys', () => {
   it('includes products that are not the first cart item', () => {
-    expect(getOrderProductIds(sashAndDoi, products).sort()).toEqual(['doi', 'sash']);
+    expect(getOrderProductKeys(sashAndDoi, products).sort()).toEqual(['doi', 'sash']);
   });
 
   it('falls back to product_id when notes has no item summary', () => {
-    expect(getOrderProductIds(doiOnly, products)).toEqual(['doi']);
-    expect(getOrderProductIds({ product_id: 'doi', notes: 'โทรก่อนส่ง' }, products)).toEqual(['doi']);
+    expect(getOrderProductKeys(doiOnly, products)).toEqual(['doi']);
+    expect(getOrderProductKeys({ product_id: 'doi', notes: 'โทรก่อนส่ง' }, products)).toEqual(['doi']);
   });
 
   it('picks the longest product name when one name is a prefix of another', () => {
     const o = { product_id: null, notes: '[เสื้อ Limited - ดำ [L/ดำ] x1]' };
-    expect(getOrderProductIds(o, products)).toEqual(['shirt-ltd']);
+    expect(getOrderProductKeys(o, products)).toEqual(['shirt-ltd']);
   });
 
   it('ignores customer notes that mention a product name', () => {
     const o = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1] อยากได้ ชุดขึ้นดอย ด้วย' };
-    expect(getOrderProductIds(o, products)).toEqual(['sash']);
+    expect(getOrderProductKeys(o, products)).toEqual(['sash']);
   });
 
   it('handles product names that contain brackets', () => {
     const prods = [...products, { id: 'ltd', name: 'เสื้อ [Limited]' }];
     const o = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1 | เสื้อ [Limited] - ดำ [L/ดำ] x1]' };
-    expect(getOrderProductIds(o, prods).sort()).toEqual(['ltd', 'sash']);
+    expect(getOrderProductKeys(o, prods).sort()).toEqual(['ltd', 'sash']);
   });
 
   it('stays fast on hostile notes', () => {
     const hostile = ['[' + ' | a'.repeat(200000), '[' + 'a [b] '.repeat(200000), '[' + ' ['.repeat(200000)];
     const t0 = performance.now();
-    for (const notes of hostile) getOrderProductIds({ product_id: 'sash', notes }, products);
+    for (const notes of hostile) getOrderProductKeys({ product_id: 'sash', notes }, products);
     expect(performance.now() - t0).toBeLessThan(500);
+  });
+
+  it('keeps a deleted product filterable by its saved name', () => {
+    // Deleting a product nulls orders.product_id; only the name in notes survives
+    const o = { product_id: null, notes: '[เสื้อรุ่นเก่า - ดำ [L/ดำ] x1 | ผ้าคาด [F/แดง] x1]' };
+    expect(getOrderProductKeys(o, products).sort()).toEqual(['name:เสื้อรุ่นเก่า', 'sash']);
+  });
+
+  it('does not double count the first item when its product was renamed', () => {
+    const o = { product_id: 'sash', notes: '[ผ้าคาดชื่อเดิม [F/แดง] x1 | ชุดขึ้นดอย [M/ขาว] x1]' };
+    expect(getOrderProductKeys(o, products).sort()).toEqual(['doi', 'sash']);
+  });
+
+  it('picks up a newly added product without any other change', () => {
+    const withNew = [...products, { id: 'new', name: 'หมวกรุ่นใหม่' }];
+    const o = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1 | หมวกรุ่นใหม่ [F/ดำ] x1]' };
+    expect(getOrderProductKeys(o, withNew).sort()).toEqual(['new', 'sash']);
+  });
+});
+
+describe('listOrphanProducts', () => {
+  it('lists each missing product once, grouping its variants', () => {
+    const orders = [
+      { product_id: null, notes: '[เสื้อรุ่นเก่า - ดำ [L/ดำ] x1]' },
+      { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1 | เสื้อรุ่นเก่า - ขาว [M/ขาว] x2]' },
+      sashOnly
+    ];
+    expect(listOrphanProducts(orders, products)).toEqual([{ id: 'name:เสื้อรุ่นเก่า', name: 'เสื้อรุ่นเก่า' }]);
   });
 });
 
 describe('matchesProductFilter', () => {
-  const ids = (o) => getOrderProductIds(o, products);
+  const ids = (o) => getOrderProductKeys(o, products);
 
   it('matches everything when nothing is selected', () => {
     expect(matchesProductFilter(ids(sashOnly), [], 'only')).toBe(true);

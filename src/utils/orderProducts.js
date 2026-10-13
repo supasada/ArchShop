@@ -50,16 +50,43 @@ function findProductByItemName(itemName, products) {
   return best;
 }
 
-export function getOrderProductIds(order, products = []) {
-  const ids = new Set();
-  if (order?.product_id) ids.add(order.product_id);
+// Filter key for a product that no longer exists (deleted) or was renamed after the
+// order was placed: all we have left is the name saved in the order's notes.
+const ORPHAN_PREFIX = 'name:';
+const orphanKey = (itemName) => ORPHAN_PREFIX + itemName.split(' - ')[0].trim();
+
+/**
+ * Every product in an order, as filter keys: a product id when the product still
+ * exists, otherwise a "name:<saved name>" key so old orders stay filterable.
+ */
+export function getOrderProductKeys(order, products = []) {
+  const keys = new Set();
+  const knownProductId = products.some((p) => p.id === order?.product_id) ? order.product_id : null;
+  if (knownProductId) keys.add(knownProductId);
 
   const notes = typeof order?.notes === 'string' ? order.notes : '';
-  for (const itemName of parseSummaryItemNames(notes)) {
-    const prod = findProductByItemName(itemName.trim(), products);
-    if (prod) ids.add(prod.id);
+  parseSummaryItemNames(notes).forEach((rawName, index) => {
+    const itemName = rawName.trim();
+    const prod = findProductByItemName(itemName, products);
+    if (prod) keys.add(prod.id);
+    // product_id is the first cart item, so a first name that no longer matches
+    // just means that product was renamed; it is already counted above.
+    else if (!(index === 0 && knownProductId)) keys.add(orphanKey(itemName));
+  });
+  return [...keys];
+}
+
+/** Products found in orders but missing from the product list, for extra filter chips. */
+export function listOrphanProducts(orders = [], products = []) {
+  const found = new Map();
+  for (const order of orders) {
+    for (const key of getOrderProductKeys(order, products)) {
+      if (key.startsWith(ORPHAN_PREFIX) && !found.has(key)) {
+        found.set(key, { id: key, name: key.slice(ORPHAN_PREFIX.length) });
+      }
+    }
   }
-  return [...ids];
+  return [...found.values()].sort((a, b) => a.name.localeCompare(b.name, 'th'));
 }
 
 /**
@@ -67,12 +94,12 @@ export function getOrderProductIds(order, products = []) {
  *       'all'  → order has every selected product (may have others too)
  *       'only' → order has exactly the selected products, nothing else
  */
-export function matchesProductFilter(orderProductIds, selectedIds, mode = 'any') {
+export function matchesProductFilter(orderProductKeys, selectedIds, mode = 'any') {
   if (!selectedIds || selectedIds.length === 0) return true;
-  const has = (id) => orderProductIds.includes(id);
+  const has = (id) => orderProductKeys.includes(id);
   if (mode === 'all') return selectedIds.every(has);
   if (mode === 'only') {
-    return selectedIds.every(has) && orderProductIds.every((id) => selectedIds.includes(id));
+    return selectedIds.every(has) && orderProductKeys.every((id) => selectedIds.includes(id));
   }
   return selectedIds.some(has);
 }
