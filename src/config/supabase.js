@@ -3,6 +3,7 @@
  */
 
 import { createClient } from '@supabase/supabase-js';
+import { compressImage } from '../utils/imageCompress';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -344,6 +345,7 @@ export const api = {
   // Storage
   async uploadSlip(file, studentId) {
     if (!file) return null;
+    file = await compressImage(file);
     const cleanId = String(studentId || 'std').replace(/[^a-zA-Z0-9]/g, '');
     const ext = (file.name || 'slip.jpg').split('.').pop() || 'jpg';
     const name = `slip_${cleanId}_${Date.now()}.${ext}`;
@@ -351,7 +353,8 @@ export const api = {
     if (isLiveSupabase && supabase) {
       try {
         const { error } = await supabase.storage.from('payment-slips').upload(name, file, {
-          cacheControl: '3600',
+          // File name is unique per upload, so the content never changes
+          cacheControl: '31536000',
           upsert: true
         });
         if (!error) {
@@ -380,11 +383,12 @@ export const api = {
 
   async uploadProductImage(file, side = 'front') {
     if (!file) return null;
+    file = await compressImage(file);
     const ext = file.name.split('.').pop();
     const name = `prod_${side}_${Date.now()}.${ext}`;
 
     if (isLiveSupabase && supabase) {
-      const { error } = await supabase.storage.from('product-images').upload(name, file);
+      const { error } = await supabase.storage.from('product-images').upload(name, file, { cacheControl: '31536000' });
       if (!error) {
         const { data } = supabase.storage.from('product-images').getPublicUrl(name);
         return data.publicUrl;

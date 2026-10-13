@@ -51,6 +51,8 @@ export default function ProductCard({ product, onOrderClick }) {
       {/* Image Flip Box */}
       <div className="relative aspect-square bg-zinc-100 overflow-hidden border-b border-zinc-100">
         <img
+          loading="lazy"
+          decoding="async"
           src={showBack ? backImg : frontImg}
           alt={product.name}
           className="w-full h-full object-cover transition-opacity duration-300"

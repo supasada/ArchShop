@@ -200,7 +200,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                       title={th.label}
                       className={`shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all ${displayImage === th.url ? 'border-zinc-900' : 'border-zinc-200 hover:border-zinc-400'}`}
                     >
-                      <img src={th.url} alt={th.label} className="w-full h-full object-cover" />
+                      <img loading="lazy" decoding="async" src={th.url} alt={th.label} className="w-full h-full object-cover" />
                     </button>
                   ))}
                 </div>

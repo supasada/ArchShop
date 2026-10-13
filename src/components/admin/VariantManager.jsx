@@ -123,7 +123,7 @@ export default function VariantManager({ productId }) {
           <div className="flex gap-1.5 flex-wrap">
             {(v.images || []).map((img) => (
               <div key={img.id} className="relative w-14 h-14">
-                <img src={img.image_url} alt="" className="w-full h-full object-cover rounded border" />
+                <img loading="lazy" decoding="async" src={img.image_url} alt="" className="w-full h-full object-cover rounded border" />
                 <button
                   type="button"
                   onClick={() => handleImageDelete(img.id)}

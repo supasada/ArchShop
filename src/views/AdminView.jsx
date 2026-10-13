@@ -754,7 +754,7 @@ export default function AdminView({ onBackToStore }) {
                                 className="inline-flex flex-col items-center p-1 hover:bg-zinc-100 rounded-lg border border-zinc-200 transition-all hover:scale-105"
                                 title="คลิกเพื่อตรวจสลิป"
                               >
-                                <img src={order.payment_slip_url} alt="Slip" className="w-9 h-9 object-cover rounded shadow-xs" />
+                                <img loading="lazy" decoding="async" src={order.payment_slip_url} alt="Slip" className="w-9 h-9 object-cover rounded shadow-xs" />
                                 <span className="text-[9px] text-zinc-500 mt-0.5">ตรวจสลิป</span>
                               </button>
                             ) : (
@@ -893,6 +893,8 @@ export default function AdminView({ onBackToStore }) {
                   <div className="flex gap-4">
                     <div className="w-24 h-24 bg-zinc-100 rounded-xl overflow-hidden border shrink-0">
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={p.image_front_url || '/assets/images/arch_shirt_front.jpg'}
                         alt={p.name}
                         className="w-full h-full object-cover"
