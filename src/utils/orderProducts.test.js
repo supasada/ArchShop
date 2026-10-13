@@ -83,8 +83,9 @@ describe('listOrphanProducts', () => {
       { product_id: null, notes: `[${many}]` },
       { product_id: null, notes: `[${'ก'.repeat(5000)} [F/x] x1]` }
     ];
-    expect(getOrderProductKeys(orders[0], products).length).toBeLessThanOrEqual(50);
-    expect(getOrderProductKeys(orders[1], products)).toEqual([]);
+    // 50 parsed items + the 'unreadable' marker for the part that was cut off
+    expect(getOrderProductKeys(orders[0], products).length).toBeLessThanOrEqual(51);
+    expect(getOrderProductKeys(orders[1], products)).toEqual(['unreadable']);
     expect(listOrphanProducts(orders, products).length).toBeLessThanOrEqual(30);
   });
 
@@ -92,6 +93,19 @@ describe('listOrphanProducts', () => {
     const real = { product_id: null, notes: '[เสื้อรุ่นเก่า [L/ดำ] x1]' };
     const junk = { product_id: null, notes: '[aaa [L/ดำ] x1]' };
     expect(listOrphanProducts([junk, real, real], products)[0].name).toBe('เสื้อรุ่นเก่า');
+  });
+
+  it('ranks admin-confirmed products above a flood of unconfirmed junk', () => {
+    const real = { product_id: null, payment_status: 'confirmed', notes: '[เสื้อรุ่นเก่า [L/ดำ] x1]' };
+    const junk = Array.from({ length: 200 }, (_, i) => ({ product_id: null, payment_status: 'pending', notes: `[junk${i % 40} [L/ดำ] x1]` }));
+    expect(listOrphanProducts([...junk, real], products)[0].name).toBe('เสื้อรุ่นเก่า');
+  });
+
+  it('fails closed on "only" when part of an order could not be read', () => {
+    const hidden = Array.from({ length: 60 }, () => 'ผ้าคาด [F/แดง] x1').join(' | ') + ' | ชุดขึ้นดอย [M/ขาว] x1';
+    const keys = getOrderProductKeys({ product_id: 'sash', notes: `[${hidden}]` }, products);
+    expect(matchesProductFilter(keys, ['sash'], 'only')).toBe(false);
+    expect(matchesProductFilter(keys, ['sash'], 'any')).toBe(true);
   });
 });
 

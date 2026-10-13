@@ -59,6 +59,9 @@ function findProductByItemName(itemName, products) {
 // Filter key for a product that no longer exists (deleted) or was renamed after the
 // order was placed: all we have left is the name saved in the order's notes.
 const ORPHAN_PREFIX = 'name:';
+// Stands for "something we refused to read" (too many items / oversized name). It is
+// never selectable, so an order carrying it cannot pass the "only" filter by hiding items.
+const UNREADABLE_KEY = 'unreadable';
 export const isOrphanKey = (key) => typeof key === 'string' && key.startsWith(ORPHAN_PREFIX);
 const orphanKey = (itemName) => {
   const name = itemName.split(' - ')[0].trim();
@@ -75,33 +78,39 @@ export function getOrderProductKeys(order, products = []) {
   if (knownProductId) keys.add(knownProductId);
 
   const notes = typeof order?.notes === 'string' ? order.notes : '';
-  parseSummaryItemNames(notes).forEach((rawName, index) => {
+  const itemNames = parseSummaryItemNames(notes);
+  itemNames.forEach((rawName, index) => {
     const itemName = rawName.trim();
     const prod = findProductByItemName(itemName, products);
     if (prod) keys.add(prod.id);
     // product_id is the first cart item, so a first name that no longer matches
     // just means that product was renamed; it is already counted above.
     else if (!(index === 0 && knownProductId)) {
-      const key = orphanKey(itemName);
-      if (key) keys.add(key);
+      keys.add(orphanKey(itemName) || UNREADABLE_KEY);
     }
   });
+  if (itemNames.length >= MAX_ITEMS_PER_ORDER) keys.add(UNREADABLE_KEY);
   return [...keys];
 }
 
 /**
  * Products found in orders but missing from the product list, for extra filter chips.
- * Most-ordered first and capped, so junk names from forged orders cannot flood the UI.
+ * Capped, and ranked by admin-confirmed orders first: only an admin can confirm an
+ * order, so junk names from forged orders cannot push real products out of the list.
  */
 export function listOrphanProducts(orders = [], products = []) {
   const counts = new Map();
   for (const order of orders) {
     for (const key of getOrderProductKeys(order, products)) {
-      if (isOrphanKey(key)) counts.set(key, (counts.get(key) || 0) + 1);
+      if (!isOrphanKey(key)) continue;
+      const c = counts.get(key) || { confirmed: 0, total: 0 };
+      if (order?.payment_status === 'confirmed') c.confirmed += 1;
+      c.total += 1;
+      counts.set(key, c);
     }
   }
   return [...counts.entries()]
-    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'th'))
+    .sort((a, b) => b[1].confirmed - a[1].confirmed || b[1].total - a[1].total || a[0].localeCompare(b[0], 'th'))
     .slice(0, MAX_ORPHAN_CHIPS)
     .map(([key]) => ({ id: key, name: key.slice(ORPHAN_PREFIX.length) }));
 }
