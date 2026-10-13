@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV } from '../utils/csvExport';
+import { getOrderProductIds, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
@@ -23,7 +24,8 @@ export default function AdminView({ onBackToStore }) {
   // Order filters
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [productFilter, setProductFilter] = useState('all');
+  const [productFilter, setProductFilter] = useState([]); // selected product ids
+  const [productFilterMode, setProductFilterMode] = useState('any'); // any | all | only
 
   // Slip Inspector state
   const [selectedSlipOrder, setSelectedSlipOrder] = useState(null);
@@ -392,7 +394,7 @@ export default function AdminView({ onBackToStore }) {
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all' && o.payment_status !== statusFilter) return false;
-    if (productFilter !== 'all' && o.product_id !== productFilter) return false;
+    if (!matchesProductFilter(getOrderProductIds(o, products), productFilter, productFilterMode)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       return (
@@ -613,15 +615,6 @@ export default function AdminView({ onBackToStore }) {
                 <option value="rejected">✕ ปฏิเสธ (Rejected)</option>
               </select>
 
-              <select
-                value={productFilter}
-                onChange={(e) => setProductFilter(e.target.value)}
-                className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-mono max-w-[180px] truncate"
-              >
-                <option value="all">ทุกลายเสื้อ</option>
-                {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-
               <button
                 type="button"
                 onClick={() => exportOrdersToCSV(filteredOrders, products)}
@@ -630,6 +623,55 @@ export default function AdminView({ onBackToStore }) {
                 <span>📊 Export CSV</span>
               </button>
             </div>
+          </div>
+
+          {/* Product filter: pick one or more products + how they must match */}
+          <div className="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-col gap-3 shadow-xs">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-zinc-700">กรองตามสินค้า:</span>
+              <button
+                type="button"
+                onClick={() => setProductFilter([])}
+                className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                  productFilter.length === 0
+                    ? 'bg-zinc-900 text-white border-zinc-900'
+                    : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                }`}
+              >
+                ทุกสินค้า
+              </button>
+              {products.map((p) => {
+                const on = productFilter.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setProductFilter(on ? productFilter.filter((id) => id !== p.id) : [...productFilter, p.id])}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
+                      on
+                        ? 'bg-zinc-900 text-white border-zinc-900'
+                        : 'bg-zinc-50 text-zinc-600 border-zinc-200 hover:bg-zinc-100'
+                    }`}
+                  >
+                    {on ? '✓ ' : ''}{p.name}
+                  </button>
+                );
+              })}
+            </div>
+            {productFilter.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={productFilterMode}
+                  onChange={(e) => setProductFilterMode(e.target.value)}
+                  className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold"
+                >
+                  <option value="any">มีสินค้าที่เลือก (อย่างน้อย 1 อย่าง)</option>
+                  <option value="all">มีครบทุกอย่างที่เลือก (อาจมีอย่างอื่นด้วย)</option>
+                  <option value="only">ซื้อเฉพาะที่เลือกเท่านั้น (ไม่มีอย่างอื่น)</option>
+                </select>
+                <span className="text-xs text-zinc-500 font-mono">พบ {filteredOrders.length} ออร์เดอร์</span>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-zinc-200 overflow-hidden shadow-xs">
@@ -656,6 +698,9 @@ export default function AdminView({ onBackToStore }) {
                   ) : (
                     filteredOrders.map((order) => {
                       const prod = order.products || products.find(p => p.id === order.product_id);
+                      const orderProductNames = getOrderProductIds(order, products)
+                        .map((id) => products.find((p) => p.id === id)?.name)
+                        .filter(Boolean);
                       const isOrderBusy = actionLoadingId === order.id;
 
                       return (
@@ -682,7 +727,9 @@ export default function AdminView({ onBackToStore }) {
 
                           {/* 3. Product & Sizing */}
                           <td className="py-3.5 px-4">
-                            <div className="font-bold text-zinc-900">{prod?.name || order.product_name || 'เสื้อสโมสร'}</div>
+                            <div className="font-bold text-zinc-900">
+                              {orderProductNames.length > 1 ? orderProductNames.join(' + ') : (prod?.name || order.product_name || 'เสื้อสโมสร')}
+                            </div>
                             <div className="font-mono text-zinc-600 font-bold text-xs mt-0.5">
                               ไซส์: <span className="text-black bg-zinc-100 px-1.5 py-0.5 rounded">{order.size}</span> ({order.color}) × {order.quantity}
                             </div>
