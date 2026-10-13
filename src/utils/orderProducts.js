@@ -5,8 +5,37 @@
  * These helpers recover every product in an order so admin filters see all of them.
  */
 
-// One cart line inside the notes summary: "Name [size/color] xQty"
-const ITEM_PATTERN = /(?:^\[| \| )(.+?) \[[^\]]*\] x\d+(?= \| |\])/g;
+// What must follow the "]" closing an item's [size/color]: " xQty" then " | " or the final "]"
+const ITEM_TAIL = /\] x\d+( \| |\])/y;
+
+// Item names from the leading "[Name [size/color] xQty | ...]" summary of notes.
+// Hand-rolled single forward pass: notes are customer-written, so a backtracking
+// regex here could be made to freeze the admin page.
+function parseSummaryItemNames(notes) {
+  const names = [];
+  if (!notes.startsWith('[')) return names;
+  let start = 1;
+  let search = start;
+  while (search < notes.length) {
+    const nameEnd = notes.indexOf(' [', search);
+    if (nameEnd === -1) break;
+    if (nameEnd === start) { search = start + 1; continue; }
+    const close = notes.indexOf(']', nameEnd + 2);
+    if (close === -1) break;
+    ITEM_TAIL.lastIndex = close;
+    const tail = ITEM_TAIL.exec(notes);
+    if (!tail) {
+      // That "[" belonged to the name itself (e.g. "เสื้อ [Limited]"); keep looking past it
+      search = close + 1;
+      continue;
+    }
+    names.push(notes.slice(start, nameEnd));
+    if (tail[1] === ']') break;
+    start = ITEM_TAIL.lastIndex;
+    search = start;
+  }
+  return names;
+}
 
 function findProductByItemName(itemName, products) {
   // Cart item name is either "Product" or "Product - Variant"; prefer the longest match
@@ -26,13 +55,9 @@ export function getOrderProductIds(order, products = []) {
   if (order?.product_id) ids.add(order.product_id);
 
   const notes = typeof order?.notes === 'string' ? order.notes : '';
-  if (notes.startsWith('[')) {
-    for (const match of notes.matchAll(ITEM_PATTERN)) {
-      // matchAll keeps scanning past the summary; stop at the first non-contiguous hit
-      if (match.index !== 0 && !notes.startsWith(' | ', match.index)) break;
-      const prod = findProductByItemName(match[1].trim(), products);
-      if (prod) ids.add(prod.id);
-    }
+  for (const itemName of parseSummaryItemNames(notes)) {
+    const prod = findProductByItemName(itemName.trim(), products);
+    if (prod) ids.add(prod.id);
   }
   return [...ids];
 }

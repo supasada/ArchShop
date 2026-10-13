@@ -35,6 +35,19 @@ describe('getOrderProductIds', () => {
     const o = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1] อยากได้ ชุดขึ้นดอย ด้วย' };
     expect(getOrderProductIds(o, products)).toEqual(['sash']);
   });
+
+  it('handles product names that contain brackets', () => {
+    const prods = [...products, { id: 'ltd', name: 'เสื้อ [Limited]' }];
+    const o = { product_id: 'sash', notes: '[ผ้าคาด [F/แดง] x1 | เสื้อ [Limited] - ดำ [L/ดำ] x1]' };
+    expect(getOrderProductIds(o, prods).sort()).toEqual(['ltd', 'sash']);
+  });
+
+  it('stays fast on hostile notes', () => {
+    const hostile = ['[' + ' | a'.repeat(200000), '[' + 'a [b] '.repeat(200000), '[' + ' ['.repeat(200000)];
+    const t0 = performance.now();
+    for (const notes of hostile) getOrderProductIds({ product_id: 'sash', notes }, products);
+    expect(performance.now() - t0).toBeLessThan(500);
+  });
 });
 
 describe('matchesProductFilter', () => {
