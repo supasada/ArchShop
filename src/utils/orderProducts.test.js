@@ -101,6 +101,14 @@ describe('listOrphanProducts', () => {
     expect(listOrphanProducts([...junk, real], products)[0].name).toBe('เสื้อรุ่นเก่า');
   });
 
+  it('fails closed on "only" when the summary is malformed', () => {
+    for (const notes of ['[ผ้าคาด [F/แดง] x1 | ชุดขึ้นดอย [M/ขาว] x1', '[ผ้าคาด [F/แดง] x1 | ชุดขึ้นดอย [M/ขาว] xx]', '[ผ้าคาด']) {
+      const keys = getOrderProductKeys({ product_id: 'sash', notes }, products);
+      expect(matchesProductFilter(keys, ['sash'], 'only')).toBe(false);
+      expect(matchesProductFilter(keys, ['sash'], 'any')).toBe(true);
+    }
+  });
+
   it('fails closed on "only" when part of an order could not be read', () => {
     const hidden = Array.from({ length: 60 }, () => 'ผ้าคาด [F/แดง] x1').join(' | ') + ' | ชุดขึ้นดอย [M/ขาว] x1';
     const keys = getOrderProductKeys({ product_id: 'sash', notes: `[${hidden}]` }, products);

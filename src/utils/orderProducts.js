@@ -17,9 +17,11 @@ const MAX_ORPHAN_CHIPS = 30;
 // Item names from the leading "[Name [size/color] xQty | ...]" summary of notes.
 // Hand-rolled single forward pass: notes are customer-written, so a backtracking
 // regex here could be made to freeze the admin page.
+// `complete` is false when the summary is cut off, malformed or over the item cap,
+// i.e. the order may contain items we did not read.
 function parseSummaryItemNames(notes) {
   const names = [];
-  if (!notes.startsWith('[')) return names;
+  if (!notes.startsWith('[')) return { names, complete: true };
   let start = 1;
   let search = start;
   while (search < notes.length && names.length < MAX_ITEMS_PER_ORDER) {
@@ -36,11 +38,11 @@ function parseSummaryItemNames(notes) {
       continue;
     }
     names.push(notes.slice(start, nameEnd));
-    if (tail[1] === ']') break;
+    if (tail[1] === ']') return { names, complete: true };
     start = ITEM_TAIL.lastIndex;
     search = start;
   }
-  return names;
+  return { names, complete: false };
 }
 
 function findProductByItemName(itemName, products) {
@@ -59,7 +61,7 @@ function findProductByItemName(itemName, products) {
 // Filter key for a product that no longer exists (deleted) or was renamed after the
 // order was placed: all we have left is the name saved in the order's notes.
 const ORPHAN_PREFIX = 'name:';
-// Stands for "something we refused to read" (too many items / oversized name). It is
+// Stands for "something we could not read" (malformed summary / too many items / oversized name). It is
 // never selectable, so an order carrying it cannot pass the "only" filter by hiding items.
 const UNREADABLE_KEY = 'unreadable';
 export const isOrphanKey = (key) => typeof key === 'string' && key.startsWith(ORPHAN_PREFIX);
@@ -78,7 +80,7 @@ export function getOrderProductKeys(order, products = []) {
   if (knownProductId) keys.add(knownProductId);
 
   const notes = typeof order?.notes === 'string' ? order.notes : '';
-  const itemNames = parseSummaryItemNames(notes);
+  const { names: itemNames, complete } = parseSummaryItemNames(notes);
   itemNames.forEach((rawName, index) => {
     const itemName = rawName.trim();
     const prod = findProductByItemName(itemName, products);
@@ -89,7 +91,7 @@ export function getOrderProductKeys(order, products = []) {
       keys.add(orphanKey(itemName) || UNREADABLE_KEY);
     }
   });
-  if (itemNames.length >= MAX_ITEMS_PER_ORDER) keys.add(UNREADABLE_KEY);
+  if (!complete) keys.add(UNREADABLE_KEY);
   return [...keys];
 }
 
