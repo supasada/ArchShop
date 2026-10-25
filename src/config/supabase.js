@@ -587,6 +587,61 @@ export const api = {
     throw new Error('Variant images require a live Supabase connection.');
   },
 
+  // Product gallery (extra images after front/back). Fetched only when the product modal opens.
+  // Returns [] on error, e.g. before migration 0013 is run.
+  async getProductImages(productId) {
+    if (!productId) return [];
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('product_images')
+        .select('id, image_url, sort_order')
+        .eq('product_id', productId)
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getProductImages notice:', error);
+        return [];
+      }
+      return data || [];
+    }
+    return [];
+  },
+
+  async addProductImage(productId, imageUrl, sortOrder = 0) {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('product_images')
+        .insert([{ product_id: productId, image_url: imageUrl, sort_order: sortOrder }])
+        .select('id, image_url, sort_order');
+      if (error) throw error;
+      return data?.[0];
+    }
+    throw new Error('Product images require a live Supabase connection.');
+  },
+
+  async deleteProductImage(imageId) {
+    if (isLiveSupabase && supabase) {
+      const { error } = await supabase.from('product_images').delete().eq('id', imageId);
+      if (error) throw error;
+      return true;
+    }
+    throw new Error('Product images require a live Supabase connection.');
+  },
+
+  // images: [{id, sort_order}] — writes each row's sort_order
+  async reorderProductImages(images) {
+    if (isLiveSupabase && supabase) {
+      const results = await Promise.all(
+        (images || []).map((img) =>
+          supabase.from('product_images').update({ sort_order: img.sort_order }).eq('id', img.id)
+        )
+      );
+      const failed = results.find((r) => r.error);
+      if (failed) throw failed.error;
+      return true;
+    }
+    throw new Error('Product images require a live Supabase connection.');
+  },
+
   // Promotions
   async getPromotions() {
     if (isLiveSupabase && supabase) {

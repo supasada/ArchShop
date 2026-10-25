@@ -8,6 +8,7 @@ import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFil
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
+import ProductGalleryManager from '../components/admin/ProductGalleryManager';
 import PromotionManager from '../components/admin/PromotionManager';
 import CountdownEventManager from '../components/admin/CountdownEventManager';
 
@@ -1355,6 +1356,10 @@ export default function AdminView({ onBackToStore }) {
                   </label>
                 </div>
               </div>
+
+              {editingProduct?.id && (
+                <ProductGalleryManager productId={editingProduct.id} />
+              )}
 
               {editingProduct?.id && (
                 <VariantManager productId={editingProduct.id} />

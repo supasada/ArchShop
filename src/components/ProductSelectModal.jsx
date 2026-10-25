@@ -6,6 +6,7 @@ import { api } from '../config/supabase';
 import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 import PersonalizationFields from './PersonalizationFields';
+import { buildProductThumbs } from '../utils/productImages';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
   const { t } = useLanguage();
@@ -16,6 +17,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const [viewImage, setViewImage] = useState(null); // image chosen from the thumbnails
 
   const [variants, setVariants] = useState([]);
+  const [gallery, setGallery] = useState([]); // extra product images, loaded when the modal opens
   const [variantQuantities, setVariantQuantities] = useState({});
   // optional jersey name/number per unit: { base | variantId: [{name, number}] }
   const [personalization, setPersonalization] = useState({});
@@ -26,18 +28,22 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     if (!product?.id) return;
     let cancelled = false;
     const load = () => api.getVariants(product.id).then((list) => { if (!cancelled) setVariants(list); });
+    const loadGallery = () => api.getProductImages(product.id).then((list) => { if (!cancelled) setGallery(list); });
 
     // fresh product: reset the selection
     setVariantQuantities({});
     setVariantSizes({});
     setPersonalization({});
     setViewImage(null);
+    setGallery([]);
     load();
+    loadGallery();
 
     // live updates (admin edits) keep the current selection
     const subs = [
       api.subscribeTable('product_variants', load),
       api.subscribeTable('product_variant_images', load),
+      api.subscribeTable('product_images', loadGallery),
       api.subscribeTable('variant_size_rows', () => setChartVersion((n) => n + 1))
     ];
     return () => { cancelled = true; subs.forEach((s) => s.unsubscribe()); };
@@ -116,11 +122,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const canAdd = hasVariants ? selectedVariants.length > 0 : true;
 
-  const thumbs = [
-    product.image_front_url && { url: product.image_front_url, label: 'หน้า' },
-    product.image_back_url && { url: product.image_back_url, label: 'หลัง' },
-    ...variants.flatMap((v) => (v.images || []).map((img, i) => ({ url: img.image_url, label: i === 0 ? v.name : `${v.name} ${i + 1}` })))
-  ].filter(Boolean);
+  // front, back, gallery…, then variant images
+  const thumbs = buildProductThumbs(product, gallery, variants);
 
   const displayImage =
     viewImage ||
