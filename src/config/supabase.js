@@ -7,6 +7,7 @@ import { compressImage } from '../utils/imageCompress';
 import { scopeRefsFromPayload, scopeRowsFromRefs } from '../utils/promotionRefs';
 import { sanitizeOrderItems, appendPersonalizationNote, isMissingOrderItemsColumn } from '../utils/personalization';
 import { FULFILLMENT_STATUSES, chunkIds } from '../utils/fulfillment';
+import { ORDER_SELECT, ORDER_FALLBACK_SELECT } from '../utils/orderRealtime';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -256,7 +257,14 @@ export const api = {
   async getAllOrders() {
     try {
       if (isLiveSupabase && supabase) {
-        const { data, error } = await supabase.from('orders').select('*, products(*)').order('created_at', { ascending: false });
+        // Explicit columns + 3 product fields (was '*, products(*)'). If a column is missing
+        // because a migration (0004/0012/0014) has not been run, PostgREST rejects the
+        // whole select: retry with '*' (still the light product join) instead of showing nothing.
+        let { data, error } = await supabase.from('orders').select(ORDER_SELECT).order('created_at', { ascending: false });
+        if (error) {
+          console.warn('Supabase getAllOrders notice (retrying with *; run pending migrations):', error);
+          ({ data, error } = await supabase.from('orders').select(ORDER_FALLBACK_SELECT).order('created_at', { ascending: false }));
+        }
         if (error) {
           console.warn('Supabase getAllOrders notice (using local fallback):', error);
           const local = localStorage.getItem('archshop_mock_orders');
@@ -445,13 +453,15 @@ export const api = {
   },
 
   // Realtime
+  // Handlers get (row, payload): row = payload.new (INSERT/UPDATE) or payload.old (DELETE);
+  // payload.errors is set when Realtime could not send the full record.
   subscribeOrders(onInsert, onUpdate, onDelete) {
     if (isLiveSupabase && supabase) {
       const channel = supabase
         .channel('realtime-orders')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, p => onInsert && onInsert(p.new))
-        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => onUpdate && onUpdate(p.new))
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, p => onDelete && onDelete(p.old))
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, p => onInsert && onInsert(p.new, p))
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => onUpdate && onUpdate(p.new, p))
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, p => onDelete && onDelete(p.old, p))
         .subscribe();
 
       return {
@@ -829,6 +839,27 @@ export const api = {
       return data || [];
     }
     return [];
+  },
+
+  // Size rows for several variants in one query (product modal), grouped by variant_id.
+  // Every requested id gets an entry ([] when it has no rows or on error).
+  async getVariantSizeRowsForVariants(variantIds) {
+    const ids = [...new Set((variantIds || []).filter(Boolean))];
+    const grouped = Object.fromEntries(ids.map((id) => [id, []]));
+    if (ids.length === 0 || !isLiveSupabase || !supabase) return grouped;
+    const { data, error } = await supabase
+      .from('variant_size_rows')
+      .select('*')
+      .in('variant_id', ids)
+      .order('sort_order', { ascending: true });
+    if (error) {
+      console.warn('Supabase getVariantSizeRowsForVariants notice:', error);
+      return grouped;
+    }
+    (data || []).forEach((row) => {
+      if (grouped[row.variant_id]) grouped[row.variant_id].push(row);
+    });
+    return grouped;
   },
 
   async createVariantSizeRow(rowData) {

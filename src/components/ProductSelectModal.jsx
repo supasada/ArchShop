@@ -3,6 +3,7 @@ import { formatCurrency } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { api } from '../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 import PersonalizationFields from './PersonalizationFields';
@@ -44,14 +45,22 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     loadGallery();
     api.getSoldCounts().then((rows) => { if (!cancelled) setSold(indexSoldCounts(rows)); });
 
-    // live updates (admin edits) keep the current selection
+    // live updates (admin edits) keep the current selection; debounced so a burst of
+    // row changes (any product's) costs one reload, not one per row
+    const reloadVariants = debounce(load, REALTIME_DEBOUNCE_MS);
+    const reloadGallery = debounce(loadGallery, REALTIME_DEBOUNCE_MS);
+    const reloadCharts = debounce(() => setChartVersion((n) => n + 1), REALTIME_DEBOUNCE_MS);
     const subs = [
-      api.subscribeTable('product_variants', load),
-      api.subscribeTable('product_variant_images', load),
-      api.subscribeTable('product_images', loadGallery),
-      api.subscribeTable('variant_size_rows', () => setChartVersion((n) => n + 1))
+      api.subscribeTable('product_variants', reloadVariants),
+      api.subscribeTable('product_variant_images', reloadVariants),
+      api.subscribeTable('product_images', reloadGallery),
+      api.subscribeTable('variant_size_rows', reloadCharts)
     ];
-    return () => { cancelled = true; subs.forEach((s) => s.unsubscribe()); };
+    return () => {
+      cancelled = true;
+      [reloadVariants, reloadGallery, reloadCharts].forEach((d) => d.cancel());
+      subs.forEach((s) => s.unsubscribe());
+    };
   }, [product?.id]);
 
   const [variantCharts, setVariantCharts] = useState({}); // variantId -> size chart rows
@@ -60,9 +69,10 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all(variants.map((v) => api.getVariantSizeRows(v.id).then((rows) => [v.id, rows]))).then((pairs) => {
-      if (!cancelled) setVariantCharts(Object.fromEntries(pairs));
-    });
+    // one query for every variant's size rows (was one per variant)
+    api.getVariantSizeRowsForVariants(variants.map((v) => v.id)).then((grouped) => {
+      if (!cancelled) setVariantCharts(grouped);
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, [variants, chartVersion]);
   const chartVariants = variants.filter((v) => (variantCharts[v.id] || []).length > 0);
@@ -239,6 +249,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
             <div className="sm:col-span-5 space-y-2">
             <div className="relative aspect-square bg-zinc-100 rounded-2xl overflow-hidden border border-zinc-200 shadow-xs">
               <img
+                decoding="async"
                 src={displayImage}
                 alt={product.name}
                 className="w-full h-full object-cover transition-opacity duration-300"

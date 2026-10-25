@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import HeroBanner from '../components/HeroBanner';
 import ProductCard from '../components/ProductCard';
 import { STORE_CONFIG } from '../config/storeConfig';
@@ -8,6 +10,27 @@ import { useCart } from '../context/CartContext';
 export default function StoreView({ products, loading, onSelectProduct }) {
   const { t, lang } = useLanguage();
   const { promotions } = useCart();
+
+  // Variant ids per product, for promo badges on the cards. Only needed when an active
+  // promotion targets specific variants; then one query for every product's variants
+  // (was one getVariants + one realtime channel per card).
+  const needsVariantIds = (promotions || []).some((p) => p.is_active &&
+    [...(p.scope_variants || []), ...(p.bundle_items || [])].some((r) => r && r.variant_id));
+  const [variantIdsByProduct, setVariantIdsByProduct] = useState({});
+  useEffect(() => {
+    if (!needsVariantIds) return;
+    let cancelled = false;
+    const load = () => api.getAllVariants().then((list) => {
+      if (cancelled) return;
+      const map = {};
+      (list || []).forEach((v) => { (map[v.product_id] = map[v.product_id] || []).push(v.id); });
+      setVariantIdsByProduct(map);
+    }).catch(() => {});
+    load();
+    const reload = debounce(load, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeTable('product_variants', reload);
+    return () => { cancelled = true; reload.cancel(); sub.unsubscribe(); };
+  }, [needsVariantIds]);
   // De-duplicate by name so repeated promotions don't stack identical banners
   const seen = new Set();
   const promoCards = (promotions || [])
@@ -80,6 +103,7 @@ export default function StoreView({ products, loading, onSelectProduct }) {
               <ProductCard
                 key={product.id}
                 product={product}
+                variantIds={variantIdsByProduct[product.id]}
                 onOrderClick={onSelectProduct}
               />
             ))}

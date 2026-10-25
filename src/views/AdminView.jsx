@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV, exportPrintSheetToCSV } from '../utils/csvExport';
@@ -13,6 +13,8 @@ import {
   normalizeSizeLimits, soldOfLimitText, isMissingStockColumn
 } from '../utils/stock';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
+import { applyOrderChange } from '../utils/orderRealtime';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
@@ -128,7 +130,21 @@ export default function AdminView({ onBackToStore }) {
     checkAuth();
   }, []);
 
-  // Fetch data
+  // Latest products, for joining `products` onto orders that arrive through realtime
+  const productsRef = useRef(products);
+  productsRef.current = products;
+
+  // Orders only (order changes never touch products)
+  const fetchOrders = async () => {
+    try {
+      const ordList = await api.getAllOrders();
+      setOrders(ordList || []);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Orders + products (initial load, after product edits: joined product names may change)
   const fetchData = async () => {
     try {
       const [ordList, prodList] = await Promise.all([
@@ -145,12 +161,25 @@ export default function AdminView({ onBackToStore }) {
   useEffect(() => {
     if (session) {
       fetchData();
-      const sub = api.subscribeOrders(
-        () => fetchData(),
-        () => fetchData(),
-        () => fetchData()
-      );
-      return () => sub?.unsubscribe && sub.unsubscribe();
+      // Realtime: patch the loaded list with each payload instead of refetching every
+      // order on every event. A full (orders-only) refetch is the debounced fallback for
+      // payloads that cannot be applied (missing id/record, payload.errors).
+      const refetchOrders = debounce(fetchOrders, REALTIME_DEBOUNCE_MS, { maxWait: 10000 });
+      const apply = (type) => (row, payload) => {
+        setOrders((prev) => {
+          const next = applyOrderChange(prev, { type, row, errors: payload?.errors }, productsRef.current);
+          if (next === null) {
+            refetchOrders(); // debounced, so calling it from an updater twice is harmless
+            return prev;
+          }
+          return next;
+        });
+      };
+      const sub = api.subscribeOrders(apply('INSERT'), apply('UPDATE'), apply('DELETE'));
+      return () => {
+        refetchOrders.cancel();
+        if (sub?.unsubscribe) sub.unsubscribe();
+      };
     }
   }, [session]);
 
@@ -234,7 +263,7 @@ export default function AdminView({ onBackToStore }) {
     } catch (err) {
       console.error('Update status in Supabase error:', err);
       alert('อัปเดตสถานะใน Supabase ไม่สำเร็จ: ' + err.message);
-      fetchData();
+      fetchOrders();
     } finally {
       setActionLoadingId(null);
     }
@@ -246,7 +275,6 @@ export default function AdminView({ onBackToStore }) {
     try {
       await api.deleteOrder(orderId);
       setOrders(prev => prev.filter(o => o.id !== orderId));
-      fetchData();
     } catch (err) {
       alert('ลบคำสั่งซื้อไม่สำเร็จ: ' + err.message);
     } finally {
@@ -289,10 +317,13 @@ export default function AdminView({ onBackToStore }) {
       if (!('fulfillment_status' in editingOrder) && payload.fulfillment_status === 'pending') {
         delete payload.fulfillment_status;
       }
-      await api.updateOrder(editingOrder.id, payload);
+      const saved = await api.updateOrder(editingOrder.id, payload);
+      // Apply the saved row locally instead of refetching every order
+      // (the realtime UPDATE carries the same values and merges idempotently)
+      const savedRow = { ...(saved || payload), id: editingOrder.id };
+      setOrders(prev => applyOrderChange(prev, { type: 'UPDATE', row: savedRow }, products) || prev);
       alert('✅ บันทึกการแก้ไขลง Supabase เรียบร้อยแล้ว');
       setIsOrderEditModalOpen(false);
-      fetchData();
     } catch (err) {
       alert('บันทึกคำสั่งซื้อไม่สำเร็จ: ' + err.message + (isMissingFulfillmentColumn(err)
         ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ fulfillment_status — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
@@ -314,12 +345,11 @@ export default function AdminView({ onBackToStore }) {
       const idSet = new Set(ids);
       setOrders(prev => prev.map(o => idSet.has(o.id) ? { ...o, fulfillment_status: bulkFulfillmentStatus } : o));
       alert(`✅ เปลี่ยนสถานะ ${ids.length} รายการเรียบร้อย`);
-      fetchData();
     } catch (err) {
       alert('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message + (isMissingFulfillmentColumn(err)
         ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ fulfillment_status — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
         : ''));
-      fetchData();
+      fetchOrders();
     } finally {
       setBulkFulfillmentLoading(false);
     }
@@ -1197,7 +1227,7 @@ export default function AdminView({ onBackToStore }) {
               {/* Left: Slip Viewer */}
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative w-full h-80 bg-zinc-950 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
-                  <img
+                  <img decoding="async"
                     src={selectedSlipOrder.payment_slip_url}
                     alt="Slip"
                     style={{
@@ -1490,7 +1520,7 @@ export default function AdminView({ onBackToStore }) {
                 <div className="p-3 bg-zinc-50 rounded-xl border space-y-2">
                   <label className="block font-bold text-zinc-700">รูปภาพด้านหน้า (Front Image):</label>
                   {productFormData.image_front_url && (
-                    <img src={productFormData.image_front_url} alt="Front" className="w-full h-32 object-contain bg-white rounded-lg border" />
+                    <img decoding="async" src={productFormData.image_front_url} alt="Front" className="w-full h-32 object-contain bg-white rounded-lg border" />
                   )}
                   <input
                     type="text"
@@ -1508,7 +1538,7 @@ export default function AdminView({ onBackToStore }) {
                 <div className="p-3 bg-zinc-50 rounded-xl border space-y-2">
                   <label className="block font-bold text-zinc-700">รูปภาพด้านหลัง (Back Image):</label>
                   {productFormData.image_back_url && (
-                    <img src={productFormData.image_back_url} alt="Back" className="w-full h-32 object-contain bg-white rounded-lg border" />
+                    <img decoding="async" src={productFormData.image_back_url} alt="Back" className="w-full h-32 object-contain bg-white rounded-lg border" />
                   )}
                   <input
                     type="text"

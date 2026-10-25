@@ -304,6 +304,8 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
                     {/* Thumbnail & Name */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
                       <img
+                        loading="lazy"
+                        decoding="async"
                         src={item.imageFrontUrl}
                         alt={item.productName}
                         className="w-12 h-12 sm:w-14 sm:h-14 object-cover rounded-xl border border-zinc-200 shadow-2xs shrink-0"

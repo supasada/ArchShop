@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { api } from '../config/supabase';
+import React, { useState } from 'react';
 import { formatCurrency, formatDateThai } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 
-export default function ProductCard({ product, onOrderClick }) {
+// variantIds: this product's variant ids, loaded once for the whole catalog by StoreView
+// (one query instead of one per card), used only to match variant-scoped promo badges.
+export default function ProductCard({ product, onOrderClick, variantIds = [] }) {
   const { t, lang } = useLanguage();
   const { promotions } = useCart();
   const [showBack, setShowBack] = useState(false);
@@ -12,15 +13,6 @@ export default function ProductCard({ product, onOrderClick }) {
   const frontImg = product.image_front_url || '/assets/images/arch_shirt_front.jpg';
   const backImg = product.image_back_url || frontImg;
   const sizes = Array.isArray(product.available_sizes) ? product.available_sizes : [];
-
-  const [variantIds, setVariantIds] = useState([]);
-  useEffect(() => {
-    let cancelled = false;
-    const load = () => api.getVariants(product.id).then((list) => { if (!cancelled) setVariantIds(list.map((v) => v.id)); });
-    load();
-    const sub = api.subscribeTable('product_variants', load);
-    return () => { cancelled = true; sub.unsubscribe(); };
-  }, [product.id]);
 
   const refMatches = (r) => r.product_id === product.id || (r.variant_id && variantIds.includes(r.variant_id));
   // Only promotions this product can actually take part in

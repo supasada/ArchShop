@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { computePricing } from '../utils/pricingEngine';
 import { api } from '../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { normalizeCartItem, resizePersonalization, hasPersonalization } from '../utils/personalization';
 
 const CartContext = createContext();
@@ -27,12 +28,14 @@ export function CartProvider({ children }) {
 
   useEffect(() => {
     reloadPromotions();
+    // Saving one promotion writes several rows across these tables: reload once per burst
+    const reload = debounce(reloadPromotions, REALTIME_DEBOUNCE_MS);
     const subs = [
-      api.subscribeTable('promotions', reloadPromotions),
-      api.subscribeTable('promotion_scope_variants', reloadPromotions),
-      api.subscribeTable('promotion_bundle_items', reloadPromotions)
+      api.subscribeTable('promotions', reload),
+      api.subscribeTable('promotion_scope_variants', reload),
+      api.subscribeTable('promotion_bundle_items', reload)
     ];
-    return () => subs.forEach((s) => s.unsubscribe());
+    return () => { reload.cancel(); subs.forEach((s) => s.unsubscribe()); };
   }, []);
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../../utils/debounce';
 import { formatDateToInputLocal, parseInputLocalToDate, formatDateThai } from '../../utils/formatters';
 
 const emptyForm = { title: '', target_at: '' };
@@ -25,8 +26,9 @@ export default function CountdownEventManager() {
   useEffect(() => { load(); }, []);
 
   useEffect(() => {
-    const sub = api.subscribeTable('countdown_events', reloadQuiet);
-    return () => sub.unsubscribe();
+    const reload = debounce(reloadQuiet, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeTable('countdown_events', reload);
+    return () => { reload.cancel(); sub.unsubscribe(); };
   }, []);
 
   const resetForm = () => { setForm(emptyForm); setEditingId(null); };

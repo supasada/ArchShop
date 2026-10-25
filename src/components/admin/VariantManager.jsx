@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../../utils/debounce';
 import { formatCurrency } from '../../utils/formatters';
 import VariantSizeChartManager from './VariantSizeChartManager';
 import {
@@ -129,11 +130,12 @@ export default function VariantManager({ productId }) {
 
 
   useEffect(() => {
+    const reload = debounce(reloadQuiet, REALTIME_DEBOUNCE_MS);
     const subs = [
-      api.subscribeTable('product_variants', reloadQuiet),
-      api.subscribeTable('product_variant_images', reloadQuiet)
+      api.subscribeTable('product_variants', reload),
+      api.subscribeTable('product_variant_images', reload)
     ];
-    return () => subs.forEach((s) => s.unsubscribe());
+    return () => { reload.cancel(); subs.forEach((s) => s.unsubscribe()); };
   }, [productId]);
 
   const handleCreate = async () => {

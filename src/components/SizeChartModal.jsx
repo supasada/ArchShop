@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { api } from '../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 
 export default function SizeChartModal({ isOpen, onClose, variant }) {
   const { t } = useLanguage();
@@ -26,8 +27,9 @@ export default function SizeChartModal({ isOpen, onClose, variant }) {
       setVariantColumns(cols);
     });
     load();
-    const sub = api.subscribeTable('variant_size_rows', load);
-    return () => { cancelled = true; sub.unsubscribe(); };
+    const reload = debounce(load, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeTable('variant_size_rows', reload);
+    return () => { cancelled = true; reload.cancel(); sub.unsubscribe(); };
   }, [isOpen, variant?.id]);
 
   if (!isOpen) return null;

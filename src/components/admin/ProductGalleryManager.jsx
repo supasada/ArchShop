@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../../utils/debounce';
 import { moveImage, nextSortOrder } from '../../utils/productImages';
 
 const authHint = 'ต้องเข้าสู่ระบบแอดมินผ่าน Supabase Auth และรัน migration 0013 แล้ว';
@@ -24,8 +25,9 @@ export default function ProductGalleryManager({ productId }) {
   useEffect(() => { load(); }, [productId]);
 
   useEffect(() => {
-    const sub = api.subscribeTable('product_images', reloadQuiet);
-    return () => sub.unsubscribe();
+    const reload = debounce(reloadQuiet, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeTable('product_images', reload);
+    return () => { reload.cancel(); sub.unsubscribe(); };
   }, [productId]);
 
   const handleUpload = async (fileList) => {

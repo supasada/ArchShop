@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { formatDateThai } from '../utils/formatters';
 import { useLanguage } from '../context/LanguageContext';
 
@@ -91,8 +92,9 @@ export default function CountdownEventsRow() {
 
   useEffect(() => {
     reload();
-    const sub = api.subscribeTable('countdown_events', reload);
-    return () => sub.unsubscribe();
+    const reloadSoon = debounce(reload, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeTable('countdown_events', reloadSoon);
+    return () => { reloadSoon.cancel(); sub.unsubscribe(); };
   }, []);
 
   if (events.length === 0) return null;

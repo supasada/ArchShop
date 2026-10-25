@@ -8,6 +8,9 @@ import ReceiptModal from './components/ReceiptModal';
 import TrackingModal from './components/TrackingModal';
 import SizeChartModal from './components/SizeChartModal';
 import { api } from './config/supabase';
+import { debounce, REALTIME_DEBOUNCE_MS } from './utils/debounce';
+
+const PRODUCTS_POLL_MS = 60000;
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { CartProvider, useCart } from './context/CartContext';
 
@@ -70,27 +73,31 @@ function MainApp() {
   useEffect(() => {
     loadProducts();
 
-    const sub = api.subscribeProducts(() => {
-      loadProducts();
-    });
+    // Realtime is the main sync for sales closing / edits. Every other trigger is
+    // debounced into one reload: a product save, or focus + visibilitychange firing
+    // together when the tab comes back.
+    const reload = debounce(loadProducts, REALTIME_DEBOUNCE_MS);
+    const sub = api.subscribeProducts(reload);
 
+    // Safety net in case the realtime socket dropped: poll only while the tab is visible,
+    // every 60s (was every 5s, also in background tabs). submitOrder re-checks
+    // is_active / order_deadline at checkout either way.
     const intervalId = setInterval(() => {
-      loadProducts();
-    }, 5000);
+      if (document.visibilityState !== 'hidden') reload();
+    }, PRODUCTS_POLL_MS);
 
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        loadProducts();
-      }
+      if (document.visibilityState === 'visible') reload();
     };
     window.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('focus', loadProducts);
+    window.addEventListener('focus', reload);
 
     return () => {
+      reload.cancel();
       if (sub?.unsubscribe) sub.unsubscribe();
       clearInterval(intervalId);
       window.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('focus', loadProducts);
+      window.removeEventListener('focus', reload);
     };
   }, []);
 
