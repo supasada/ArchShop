@@ -4,6 +4,7 @@
 
 import { createClient } from '@supabase/supabase-js';
 import { compressImage } from '../utils/imageCompress';
+import { scopeRefsFromPayload, scopeRowsFromRefs } from '../utils/promotionRefs';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -496,6 +497,22 @@ export const api = {
     return [];
   },
 
+  // Every variant in one query (light columns only), for pickers that list all products
+  async getAllVariants() {
+    if (isLiveSupabase && supabase) {
+      const { data, error } = await supabase
+        .from('product_variants')
+        .select('id, product_id, name, price, is_active, sort_order')
+        .order('sort_order', { ascending: true });
+      if (error) {
+        console.warn('Supabase getAllVariants notice:', error);
+        return [];
+      }
+      return data || [];
+    }
+    return [];
+  },
+
   async createVariant(variantData) {
     if (isLiveSupabase && supabase) {
       const { data, error } = await supabase.from('product_variants').insert([variantData]).select();
@@ -577,17 +594,16 @@ export const api = {
 
   async createPromotion(promotionData) {
     if (!isLiveSupabase || !supabase) throw new Error('Promotions require a live Supabase connection.');
-    const { scope_variant_ids, bundle_items, ...promoFields } = promotionData;
+    const { scope_refs, scope_variant_ids, bundle_items, ...promoFields } = promotionData;
+    const scopeRefs = scopeRefsFromPayload({ scope_refs, scope_variant_ids });
     const { data, error } = await supabase.from('promotions').insert([promoFields]).select();
     if (error) {
       console.error('Supabase createPromotion error:', error);
       throw error;
     }
     const promo = data?.[0];
-    if (Array.isArray(scope_variant_ids) && scope_variant_ids.length > 0) {
-      await supabase.from('promotion_scope_variants').insert(
-        scope_variant_ids.map((variantId) => ({ promotion_id: promo.id, variant_id: variantId }))
-      );
+    if (scopeRefs && scopeRefs.length > 0) {
+      await supabase.from('promotion_scope_variants').insert(scopeRowsFromRefs(promo.id, scopeRefs));
     }
     if (Array.isArray(bundle_items) && bundle_items.length > 0) {
       await supabase.from('promotion_bundle_items').insert(
@@ -609,7 +625,8 @@ export const api = {
       'name', 'type', 'is_active', 'priority', 'applies_to_all',
       'quantity', 'bundle_price', 'discount_type', 'discount_value'
     ];
-    const { scope_variant_ids, bundle_items, ...rest } = updates;
+    const { scope_refs, scope_variant_ids, bundle_items, ...rest } = updates;
+    const scopeRefs = scopeRefsFromPayload({ scope_refs, scope_variant_ids });
     const cleanUpdates = {};
     Object.keys(rest).forEach((key) => {
       if (allowedCols.includes(key)) cleanUpdates[key] = rest[key];
@@ -619,12 +636,10 @@ export const api = {
       console.error('Supabase updatePromotion error:', error);
       throw error;
     }
-    if (Array.isArray(scope_variant_ids)) {
+    if (scopeRefs) {
       await supabase.from('promotion_scope_variants').delete().eq('promotion_id', id);
-      if (scope_variant_ids.length > 0) {
-        await supabase.from('promotion_scope_variants').insert(
-          scope_variant_ids.map((variantId) => ({ promotion_id: id, variant_id: variantId }))
-        );
+      if (scopeRefs.length > 0) {
+        await supabase.from('promotion_scope_variants').insert(scopeRowsFromRefs(id, scopeRefs));
       }
     }
     if (Array.isArray(bundle_items)) {

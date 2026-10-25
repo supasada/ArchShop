@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../../config/supabase';
+import { refKey, toggleRef, cleanRefs, slotsFromBundleRows, bundleItemsFromSlots } from '../../utils/promotionRefs';
 
 const emptyForm = {
   name: '', type: 'quantity_break', is_active: true, priority: 0,
   applies_to_all: true, quantity: 2, bundle_price: '',
   discount_type: 'fixed_amount', discount_value: '',
-  scope_variant_ids: [], bundle_items: []
+  scope_refs: [], bundle_items: []
 };
 
 export default function PromotionManager({ products }) {
@@ -15,13 +16,19 @@ export default function PromotionManager({ products }) {
   const [editingId, setEditingId] = useState(null);
 
   const load = async () => {
-    const [promos, variantLists] = await Promise.all([
-      api.getPromotions(),
-      Promise.all(products.map((p) => api.getVariants(p.id)))
-    ]);
+    const [promos, variants] = await Promise.all([api.getPromotions(), api.getAllVariants()]);
     setPromotions(promos);
-    setAllVariants(variantLists.flat().map((v, i) => ({ ...v, productName: products.find((p) => p.id === v.product_id)?.name })));
+    setAllVariants(variants);
   };
+
+  // Picker chips: per product, a whole-product ref first, then that product's variants
+  const refOptions = products.flatMap((p) => [
+    { ref: { product_id: p.id }, label: `${p.name} · ทั้งสินค้า (ทุกตัวเลือก)` },
+    ...allVariants
+      .filter((v) => v.product_id === p.id)
+      .map((v) => ({ ref: { variant_id: v.id }, label: `${p.name} - ${v.name}` }))
+  ]);
+  const hasRef = (refs, ref) => refs.some((r) => refKey(r) === refKey(ref));
 
   useEffect(() => { load(); }, [products]);
 
@@ -38,11 +45,8 @@ export default function PromotionManager({ products }) {
       bundle_price: form.type === 'quantity_break' ? Number(form.bundle_price) : null,
       discount_type: form.type === 'bundle' ? form.discount_type : null,
       discount_value: form.type === 'bundle' ? Number(form.discount_value) : null,
-      scope_variant_ids: form.type === 'quantity_break' && !form.applies_to_all ? form.scope_variant_ids : [],
-      bundle_items: form.type === 'bundle'
-        ? form.bundle_items.flatMap((slot, idx) =>
-            slot.variant_ids.map((variantId) => ({ variant_id: variantId, slot: idx, required_qty: slot.required_qty })))
-        : []
+      scope_refs: form.type === 'quantity_break' && !form.applies_to_all ? cleanRefs(form.scope_refs) : [],
+      bundle_items: form.type === 'bundle' ? bundleItemsFromSlots(form.bundle_items) : []
     };
     if (editingId) {
       await api.updatePromotion(editingId, payload);
@@ -65,22 +69,8 @@ export default function PromotionManager({ products }) {
       bundle_price: promo.bundle_price || '',
       discount_type: promo.discount_type || 'fixed_amount',
       discount_value: promo.discount_value || '',
-      scope_variant_ids: (promo.scope_variants || []).map((s) => s.variant_id).filter(Boolean),
-      bundle_items: (() => {
-        const slots = [];
-        const bySlot = new Map();
-        (promo.bundle_items || []).forEach((b) => {
-          if (!b.variant_id) return;
-          if (b.slot != null && bySlot.has(b.slot)) {
-            bySlot.get(b.slot).variant_ids.push(b.variant_id);
-          } else {
-            const slot = { variant_ids: [b.variant_id], required_qty: b.required_qty || 1 };
-            if (b.slot != null) bySlot.set(b.slot, slot);
-            slots.push(slot);
-          }
-        });
-        return slots;
-      })()
+      scope_refs: cleanRefs(promo.scope_variants),
+      bundle_items: slotsFromBundleRows(promo.bundle_items)
     });
   };
 
@@ -91,7 +81,7 @@ export default function PromotionManager({ products }) {
   };
 
   const addBundleItem = () => {
-    setForm({ ...form, bundle_items: [...form.bundle_items, { variant_ids: [], required_qty: 1 }] });
+    setForm({ ...form, bundle_items: [...form.bundle_items, { refs: [], required_qty: 1 }] });
   };
 
   const updateBundleItem = (idx, changes) => {
@@ -100,11 +90,8 @@ export default function PromotionManager({ products }) {
     setForm({ ...form, bundle_items: items });
   };
 
-  const toggleSlotVariant = (idx, variantId) => {
-    const ids = form.bundle_items[idx].variant_ids;
-    updateBundleItem(idx, {
-      variant_ids: ids.includes(variantId) ? ids.filter((id) => id !== variantId) : [...ids, variantId]
-    });
+  const toggleSlotRef = (idx, ref) => {
+    updateBundleItem(idx, { refs: toggleRef(form.bundle_items[idx].refs, ref) });
   };
 
   const removeBundleItem = (idx) => {
@@ -187,30 +174,25 @@ export default function PromotionManager({ products }) {
             {!form.applies_to_all && (
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-[11px] text-zinc-500">
-                  <span>กดเลือกได้หลายรายการ ({form.scope_variant_ids.length} เลือกแล้ว)</span>
+                  <span>กดเลือกได้หลายรายการ ({form.scope_refs.length} เลือกแล้ว)</span>
                   <span className="flex gap-2">
-                    <button type="button" className="underline" onClick={() => setForm({ ...form, scope_variant_ids: allVariants.map((v) => v.id) })}>เลือกทั้งหมด</button>
-                    <button type="button" className="underline" onClick={() => setForm({ ...form, scope_variant_ids: [] })}>ล้าง</button>
+                    <button type="button" className="underline" onClick={() => setForm({ ...form, scope_refs: products.map((p) => ({ product_id: p.id })) })}>เลือกทั้งหมด</button>
+                    <button type="button" className="underline" onClick={() => setForm({ ...form, scope_refs: [] })}>ล้าง</button>
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5 max-h-40 overflow-y-auto">
-                  {allVariants.map((v) => {
-                    const on = form.scope_variant_ids.includes(v.id);
+                  {refOptions.map(({ ref, label }) => {
+                    const on = hasRef(form.scope_refs, ref);
                     return (
                       <button
-                        key={v.id}
+                        key={refKey(ref)}
                         type="button"
-                        onClick={() => setForm({
-                          ...form,
-                          scope_variant_ids: on
-                            ? form.scope_variant_ids.filter((id) => id !== v.id)
-                            : [...form.scope_variant_ids, v.id]
-                        })}
+                        onClick={() => setForm({ ...form, scope_refs: toggleRef(form.scope_refs, ref) })}
                         className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
                           on ? 'bg-zinc-900 text-white border-black' : 'bg-white text-zinc-600 border-zinc-300 hover:border-zinc-500'
                         }`}
                       >
-                        {on ? '✓ ' : ''}{v.productName} - {v.name}
+                        {on ? '✓ ' : ''}{label}
                       </button>
                     );
                   })}
@@ -265,18 +247,18 @@ export default function PromotionManager({ products }) {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {allVariants.map((v) => {
-                      const on = slot.variant_ids.includes(v.id);
+                    {refOptions.map(({ ref, label }) => {
+                      const on = hasRef(slot.refs, ref);
                       return (
                         <button
-                          key={v.id}
+                          key={refKey(ref)}
                           type="button"
-                          onClick={() => toggleSlotVariant(idx, v.id)}
+                          onClick={() => toggleSlotRef(idx, ref)}
                           className={`px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${
                             on ? 'bg-zinc-900 text-white border-black' : 'bg-white text-zinc-600 border-zinc-300 hover:border-zinc-500'
                           }`}
                         >
-                          {on ? '✓ ' : ''}{v.productName} - {v.name}
+                          {on ? '✓ ' : ''}{label}
                         </button>
                       );
                     })}
@@ -300,7 +282,7 @@ export default function PromotionManager({ products }) {
             onClick={handleSave}
             disabled={
               !form.name.trim() ||
-              (form.type === 'bundle' && (form.bundle_items.length < 2 || form.bundle_items.some((sl) => sl.variant_ids.length === 0) || !(Number(form.discount_value) > 0))) ||
+              (form.type === 'bundle' && (form.bundle_items.length < 2 || form.bundle_items.some((sl) => sl.refs.length === 0) || !(Number(form.discount_value) > 0))) ||
               (form.type === 'quantity_break' && !(Number(form.quantity) > 0 && Number(form.bundle_price) > 0))
             }
             className="flex-1 py-2 bg-zinc-900 text-white text-xs font-bold rounded disabled:opacity-40"

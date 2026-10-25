@@ -134,4 +134,46 @@ describe('computePricing', () => {
     expect(result.appliedPromotions).toHaveLength(2);
     expect(result.discount).toBe(140);
   });
+
+  it('matches a product-level scope ref against base and variant items of that product', () => {
+    const promotions = [{
+      id: 'promo5', name: 'whole product', type: 'quantity_break', is_active: true, priority: 0,
+      applies_to_all: false, quantity: 2, bundle_price: 300,
+      scope_variants: [{ product_id: 'pNew' }]
+    }];
+    // Base (no-variant) item of the product
+    const base = computePricing([{ productId: 'pNew', price: 200, quantity: 2 }], promotions);
+    expect(base.subtotal).toBe(300);
+    expect(base.appliedPromotions).toHaveLength(1);
+    // Mixed variants of the same product (including one added after the promo was made)
+    const variants = computePricing([
+      { productId: 'pNew', variantId: 'vOld', price: 200, quantity: 1 },
+      { productId: 'pNew', variantId: 'vAddedLater', price: 200, quantity: 1 }
+    ], promotions);
+    expect(variants.subtotal).toBe(300);
+    // Another product is not matched
+    const other = computePricing([{ productId: 'pOther', price: 200, quantity: 2 }], promotions);
+    expect(other.subtotal).toBe(400);
+  });
+
+  it('lets a bundle slot target a whole product', () => {
+    const promotions = [{
+      id: 'promo6', name: 'any A + B', type: 'bundle', is_active: true, priority: 0,
+      discount_type: 'fixed_amount', discount_value: 50,
+      bundle_items: [
+        { product_id: 'pA', slot: 0, required_qty: 1 },
+        { variant_id: 'vB', slot: 1, required_qty: 1 }
+      ]
+    }];
+    const withVariant = computePricing([
+      { productId: 'pA', variantId: 'vA9', price: 300, quantity: 1 },
+      { productId: 'pB', variantId: 'vB', price: 300, quantity: 1 }
+    ], promotions);
+    expect(withVariant.discount).toBe(50);
+    const withBase = computePricing([
+      { productId: 'pA', price: 300, quantity: 1 },
+      { productId: 'pB', variantId: 'vB', price: 300, quantity: 1 }
+    ], promotions);
+    expect(withBase.discount).toBe(50);
+  });
 });
