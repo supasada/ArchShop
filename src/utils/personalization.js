@@ -1,12 +1,12 @@
 /**
- * Optional, free name/number printed on a jersey, one pair per unit.
+ * Required, free name/number printed on a jersey, one pair per unit.
  * Cart items carry `personalization: [{ name, number }]` with length == quantity,
  * and checkout saves a structured `orders.order_items` array alongside the notes
  * summary. Everything here is customer-written, so it is bounded and treated as text.
  */
 
-export const NAME_MAX_LENGTH = 20; // code points, so Thai / emoji count per character
-export const NUMBER_MAX_LENGTH = 3;
+export const NAME_MAX_LENGTH = 5; // code points, so Thai / emoji count per character
+export const NUMBER_MAX_LENGTH = 2;
 export const MAX_ORDER_ITEMS = 50;
 const MAX_UNITS_PER_ITEM = 100;
 const MAX_QUANTITY = 999;
@@ -17,19 +17,19 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 
 const takeCodePoints = (str, max) => Array.from(str).slice(0, max).join('');
 
-/** While typing: drop control chars and cap the length, but keep spaces (the user may still be typing). */
+/** While typing: drop control chars, uppercase and cap the length, but keep spaces (the user may still be typing). */
 export function sanitizeNameInput(value) {
   if (value === null || value === undefined) return '';
-  return takeCodePoints(String(value).replace(CONTROL_CHARS, ''), NAME_MAX_LENGTH);
+  return takeCodePoints(String(value).replace(CONTROL_CHARS, '').toUpperCase(), NAME_MAX_LENGTH);
 }
 
-/** Final form: any language and letter case, trimmed, at most 20 characters. */
+/** Final form: any language, printed in capitals, trimmed, at most NAME_MAX_LENGTH characters. */
 export function normalizeName(value) {
   if (value === null || value === undefined) return '';
-  return takeCodePoints(String(value).replace(CONTROL_CHARS, '').trim(), NAME_MAX_LENGTH).trim();
+  return takeCodePoints(String(value).replace(CONTROL_CHARS, '').trim().toUpperCase(), NAME_MAX_LENGTH).trim();
 }
 
-/** Digits only, at most 3, kept as a string so "07" stays "07". Thai digits are converted. */
+/** Digits only, at most NUMBER_MAX_LENGTH, kept as a string so "07" stays "07". Thai digits are converted. */
 export function sanitizeNumberInput(value) {
   if (value === null || value === undefined) return '';
   return String(value)

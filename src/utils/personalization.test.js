@@ -9,26 +9,28 @@ import {
 import { getOrderProductKeys } from './orderProducts';
 
 describe('name / number validation', () => {
-  it('keeps any language and letter case, trims, max 20 code points', () => {
-    expect(normalizeName('  SomChai  ')).toBe('SomChai');
+  it('keeps any language, uppercases, trims, max 5 code points', () => {
+    expect(normalizeName('  Somch  ')).toBe('SOMCH');
+    expect(normalizeName('SomChai')).toBe('SOMCH');
     expect(normalizeName('สมชาย')).toBe('สมชาย');
-    expect(normalizeName('a'.repeat(25))).toBe('a'.repeat(20));
+    expect(normalizeName('a'.repeat(25))).toBe('A'.repeat(5));
     // emoji are one code point each even though they are two UTF-16 units
-    expect(normalizeName('😀'.repeat(25))).toBe('😀'.repeat(20));
-    expect(Array.from(normalizeName('😀'.repeat(25))).length).toBe(20);
+    expect(normalizeName('😀'.repeat(25))).toBe('😀'.repeat(5));
+    expect(Array.from(normalizeName('😀'.repeat(25))).length).toBe(5);
     expect(normalizeName(null)).toBe('');
-    expect(normalizeName('a\nb\tc')).toBe('abc');
+    expect(normalizeName('a\nb\tc')).toBe('ABC');
   });
 
   it('keeps inner and trailing spaces while typing', () => {
-    expect(sanitizeNameInput('JOHN ')).toBe('JOHN ');
-    expect(sanitizeNameInput('x'.repeat(30))).toHaveLength(20);
+    expect(sanitizeNameInput('jo ')).toBe('JO ');
+    expect(sanitizeNameInput('x'.repeat(30))).toBe('XXXXX');
   });
 
-  it('numbers: digits only, max 3, kept as a string', () => {
+  it('numbers: digits only, max 2, kept as a string', () => {
     expect(sanitizeNumberInput('07')).toBe('07');
     expect(sanitizeNumberInput('7')).toBe('7');
-    expect(sanitizeNumberInput('12a34')).toBe('123');
+    expect(sanitizeNumberInput('12a34')).toBe('12');
+    expect(sanitizeNumberInput('123')).toBe('12');
     expect(sanitizeNumberInput('-5')).toBe('5');
     expect(sanitizeNumberInput('๑๒')).toBe('12');
     expect(sanitizeNumberInput(10)).toBe('10');
@@ -49,7 +51,7 @@ describe('per-unit list', () => {
 
   it('normalizes entries and detects content', () => {
     expect(normalizePersonalization([{ name: '  a ', number: 'x9' }, 'junk'], 2))
-      .toEqual([{ name: 'a', number: '9' }, { name: '', number: '' }]);
+      .toEqual([{ name: 'A', number: '9' }, { name: '', number: '' }]);
     expect(hasPersonalization([{ name: '   ', number: '' }])).toBe(false);
     expect(hasPersonalization([{ name: '', number: '0' }])).toBe(true);
     expect(hasPersonalization(null)).toBe(false);
@@ -70,7 +72,7 @@ describe('order_items', () => {
     {
       productId: 'p1', variantId: 'v1', variantName: 'Home', productName: 'Jersey - Home',
       size: 'M', color: 'Home', quantity: 2, price: 450, allowPersonalization: true,
-      personalization: [{ name: ' Somchai ', number: '07' }, { name: '', number: '' }]
+      personalization: [{ name: ' Somch ', number: '07' }, { name: '', number: '' }]
     },
     { productId: 'p2', variantId: null, productName: 'Tote', size: '-', color: 'Black', quantity: 1, price: 150 }
   ];
@@ -81,7 +83,7 @@ describe('order_items', () => {
       {
         product_id: 'p1', variant_id: 'v1', product_name: 'Jersey - Home', variant_name: 'Home',
         size: 'M', color: 'Home', quantity: 2, unit_price: 450,
-        personalization: [{ name: 'Somchai', number: '07' }, { name: '', number: '' }]
+        personalization: [{ name: 'SOMCH', number: '07' }, { name: '', number: '' }]
       },
       {
         product_id: 'p2', variant_id: null, product_name: 'Tote', variant_name: null,
@@ -108,7 +110,7 @@ describe('order_items', () => {
     expect(it0.quantity).toBe(999);
     expect(it0.unit_price).toBe(0);
     expect(it0.personalization).toEqual([
-      { name: 'A'.repeat(20), number: '123' }, { name: '', number: '' }, { name: 'B', number: '' }
+      { name: 'A'.repeat(5), number: '12' }, { name: '', number: '' }, { name: 'B', number: '' }
     ]);
     // never more units than the quantity
     expect(sanitizeOrderItems([{ quantity: 1, personalization: [{ name: 'A' }, { name: 'B' }] }])[0].personalization)
@@ -119,7 +121,7 @@ describe('order_items', () => {
   it('formats a readable line and appends it after the notes summary', () => {
     const items = buildOrderItems(cart);
     const line = formatPersonalizationText(items);
-    expect(line).toBe('ชื่อ/เบอร์บนเสื้อ: Jersey - Home [M]: Somchai #07');
+    expect(line).toBe('ชื่อ/เบอร์บนเสื้อ: Jersey - Home [M]: SOMCH #07');
     expect(formatPersonalizationText([])).toBe('');
     expect(formatPersonalizationText(null)).toBe('');
 
@@ -165,7 +167,7 @@ describe('print sheet rows', () => {
 
   it('one row per filled unit, confirmed only by default', () => {
     const rows = buildPrintSheetRows(orders, products);
-    expect(rows.map((r) => [r.order_id, r.name, r.number])).toEqual([['o1', '', '2'], ['o1', 'Zed', '10']]);
+    expect(rows.map((r) => [r.order_id, r.name, r.number])).toEqual([['o1', '', '2'], ['o1', 'ZED', '10']]);
     expect(rows[0]).toMatchObject({ product: 'Jersey', variant: 'Home', size: 'L', customer: 'A', payment_status: 'confirmed' });
   });
 
