@@ -33,7 +33,7 @@ describe('csv builders', () => {
     }]);
     const [header, row] = csv.replace('﻿', '').split('\r\n');
     expect(header.endsWith('ชื่อ/เบอร์บนเสื้อ (Name/Number)')).toBe(true);
-    expect(row.endsWith('"ชื่อ/เบอร์บนเสื้อ: J [M]: =CMD #07"')).toBe(true);
+    expect(row.endsWith('"ชื่อ/เบอร์บนเสื้อ: J [M]: CMD #07"')).toBe(true);
   });
 
   it('exports the fulfillment status (pending when the column is missing)', () => {

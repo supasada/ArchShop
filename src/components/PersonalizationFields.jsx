@@ -25,7 +25,7 @@ export default function PersonalizationFields({ quantity, value, onChange, title
         <span className="text-xs font-mono font-bold text-zinc-800">
           👕 {title || 'ชื่อ/เบอร์บนเสื้อ'} <span className="text-rose-600">*</span>
         </span>
-        <span className="text-[10.5px] text-zinc-500">ชื่อไม่เกิน {NAME_MAX_LENGTH} ตัวอักษร (พิมพ์ใหญ่) · เบอร์ไม่เกิน {NUMBER_MAX_LENGTH} หลัก</span>
+        <span className="text-[10.5px] text-zinc-500">ชื่อภาษาอังกฤษไม่เกิน {NAME_MAX_LENGTH} ตัวอักษร (A–Z) · เบอร์ไม่เกิน {NUMBER_MAX_LENGTH} หลัก</span>
       </div>
       {units.map((u, i) => (
         <div key={i} className="flex flex-wrap sm:flex-nowrap items-center gap-2">

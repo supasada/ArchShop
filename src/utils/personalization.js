@@ -17,16 +17,19 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
 
 const takeCodePoints = (str, max) => Array.from(str).slice(0, max).join('');
 
+// Names are printed in English capitals only: uppercase, then keep A–Z and spaces
+const englishCaps = (str) => str.toUpperCase().replace(/[^A-Z ]/g, '');
+
 /** While typing: drop control chars, uppercase and cap the length, but keep spaces (the user may still be typing). */
 export function sanitizeNameInput(value) {
   if (value === null || value === undefined) return '';
-  return takeCodePoints(String(value).replace(CONTROL_CHARS, '').toUpperCase(), NAME_MAX_LENGTH);
+  return takeCodePoints(englishCaps(String(value).replace(CONTROL_CHARS, '')), NAME_MAX_LENGTH);
 }
 
-/** Final form: any language, printed in capitals, trimmed, at most NAME_MAX_LENGTH characters. */
+/** Final form: English capitals only, trimmed, at most NAME_MAX_LENGTH characters. */
 export function normalizeName(value) {
   if (value === null || value === undefined) return '';
-  return takeCodePoints(String(value).replace(CONTROL_CHARS, '').trim().toUpperCase(), NAME_MAX_LENGTH).trim();
+  return takeCodePoints(englishCaps(String(value).replace(CONTROL_CHARS, '')).trim(), NAME_MAX_LENGTH).trim();
 }
 
 /** Digits only, at most NUMBER_MAX_LENGTH, kept as a string so "07" stays "07". Thai digits are converted. */

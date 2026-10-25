@@ -9,14 +9,14 @@ import {
 import { getOrderProductKeys } from './orderProducts';
 
 describe('name / number validation', () => {
-  it('keeps any language, uppercases, trims, max 5 code points', () => {
+  it('English capitals only, trims, max 5 characters', () => {
     expect(normalizeName('  Somch  ')).toBe('SOMCH');
     expect(normalizeName('SomChai')).toBe('SOMCH');
-    expect(normalizeName('สมชาย')).toBe('สมชาย');
+    expect(normalizeName('สมชาย')).toBe('');
+    expect(normalizeName('Jo-7!')).toBe('JO');
+    expect(normalizeName('a b')).toBe('A B');
     expect(normalizeName('a'.repeat(25))).toBe('A'.repeat(5));
-    // emoji are one code point each even though they are two UTF-16 units
-    expect(normalizeName('😀'.repeat(25))).toBe('😀'.repeat(5));
-    expect(Array.from(normalizeName('😀'.repeat(25))).length).toBe(5);
+    expect(normalizeName('😀ab')).toBe('AB');
     expect(normalizeName(null)).toBe('');
     expect(normalizeName('a\nb\tc')).toBe('ABC');
   });
