@@ -6,7 +6,8 @@
 -- read every customer's name / phone / student ID / slip, mark orders paid, and delete
 -- orders and products. After it:
 --   * anon / any logged-in user: SELECT catalog tables, INSERT a *pending* order with
---     bounded quantities, upload a payment slip (no read-back), call get_sold_counts()
+--     bounded quantities, a slip object name (not a URL) and a server-set created_at,
+--     upload a payment slip (no read-back), call get_sold_counts()
 --     and track_orders() (exact match, masked phone, no slip / contact / address).
 --   * admin (a row in public.admin_users): everything else.
 --   Being "authenticated" is NOT enough — any user who signs up is authenticated.
@@ -169,6 +170,40 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.order_items_within_limits(jsonb) TO anon, authenticated;
 
+-- Name of a customer-uploaded slip object, e.g. slip_650610123_1761390000000_<32 hex>.jpg.
+-- Must match slipObjectName() in src/utils/security.js. Used by the orders insert policy
+-- and the payment-slips storage insert policy.
+CREATE OR REPLACE FUNCTION public.slip_object_name_pattern()
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+SET search_path = public
+AS $$
+  SELECT '^slip_[A-Za-z0-9]{1,20}_[0-9]{1,16}_[0-9a-f]{1,64}\.[a-z0-9]{1,5}$'::text;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.slip_object_name_pattern() TO anon, authenticated;
+
+-- created_at is set by the database for customer inserts (a forged timestamp could make a
+-- late order look like it came before the deadline). Admin inserts keep their value.
+CREATE OR REPLACE FUNCTION public.orders_force_created_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NOT COALESCE(public.is_admin(), false) THEN
+    NEW.created_at := now();
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS orders_force_created_at ON public.orders;
+CREATE TRIGGER orders_force_created_at
+  BEFORE INSERT ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.orders_force_created_at();
+
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 
 DO $$
@@ -193,6 +228,9 @@ CREATE POLICY "Customers can submit pending orders" ON public.orders
     payment_status = 'pending'
     AND fulfillment_status = 'pending'
     AND tracking_number IS NULL
+    -- the bare object name uploadSlip() writes (slipObjectName in src/utils/security.js):
+    -- no URL scheme, no slashes, so a forged row cannot point the admin at another site
+    AND (payment_slip_url IS NULL OR payment_slip_url ~ public.slip_object_name_pattern())
     AND public.order_items_within_limits(order_items)
     AND quantity BETWEEN 1 AND
         (CASE WHEN jsonb_typeof(order_items) = 'array' AND jsonb_array_length(order_items) > 0
@@ -365,7 +403,8 @@ CREATE POLICY "Product images: admin delete" ON storage.objects
   FOR DELETE TO authenticated USING (bucket_id = 'product-images' AND (SELECT public.is_admin()));
 
 CREATE POLICY "Payment slips: customers upload" ON storage.objects
-  FOR INSERT TO anon, authenticated WITH CHECK (bucket_id = 'payment-slips');
+  FOR INSERT TO anon, authenticated
+  WITH CHECK (bucket_id = 'payment-slips' AND name ~ public.slip_object_name_pattern());
 CREATE POLICY "Payment slips: admin read" ON storage.objects
   FOR SELECT TO authenticated USING (bucket_id = 'payment-slips' AND (SELECT public.is_admin()));
 CREATE POLICY "Payment slips: admin update" ON storage.objects

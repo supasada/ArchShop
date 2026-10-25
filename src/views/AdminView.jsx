@@ -14,6 +14,7 @@ import {
 } from '../utils/stock';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { applyOrderChange } from '../utils/orderRealtime';
+import { findUnderpayment } from '../utils/orderPricing';
 import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { adminLoginEmail } from '../utils/security';
@@ -77,19 +78,22 @@ export default function AdminView({ onBackToStore }) {
   const [slipZoom, setSlipZoom] = useState(1);
   const [slipRotation, setSlipRotation] = useState(0);
   // Private slips (migration 0016): a 5-minute signed URL, fetched only when a slip is opened
-  const [slipView, setSlipView] = useState({ url: null, loading: false, error: '' });
+  // kind 'external' (legacy / demo URL on another site) is shown as text only, never loaded
+  const [slipView, setSlipView] = useState({ url: null, kind: null, loading: false, error: '' });
   const selectedSlipRef = selectedSlipOrder ? `${selectedSlipOrder.id}|${selectedSlipOrder.payment_slip_url || ''}` : '';
   useEffect(() => {
     if (!selectedSlipOrder) {
-      setSlipView({ url: null, loading: false, error: '' });
+      setSlipView({ url: null, kind: null, loading: false, error: '' });
       return undefined;
     }
     let cancelled = false;
-    setSlipView({ url: null, loading: true, error: '' });
+    setSlipView({ url: null, kind: null, loading: true, error: '' });
     api.getSlipViewUrl(selectedSlipOrder.payment_slip_url)
-      .then((url) => { if (!cancelled) setSlipView({ url, loading: false, error: url ? '' : '- ไม่มีสลิป -' }); })
+      .then((res) => {
+        if (!cancelled) setSlipView({ url: res?.url || null, kind: res?.kind || null, loading: false, error: res?.url ? '' : '- ไม่มีสลิป -' });
+      })
       .catch((err) => {
-        if (!cancelled) setSlipView({ url: null, loading: false, error: 'เปิดสลิปไม่สำเร็จ: ' + (err?.message || err) });
+        if (!cancelled) setSlipView({ url: null, kind: null, loading: false, error: 'เปิดสลิปไม่สำเร็จ: ' + (err?.message || err) });
       });
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -185,6 +189,19 @@ export default function AdminView({ onBackToStore }) {
     checkAuth();
   }, []);
 
+  // For the "ยอดไม่ตรง" check: every variant + promotions, loaded once per admin session
+  // (products come from fetchData). Nothing is fetched per order.
+  const [pricingRefs, setPricingRefs] = useState({ variants: [], promotions: [] });
+  useEffect(() => {
+    if (!session) return undefined;
+    let cancelled = false;
+    Promise.all([api.getAllVariants(), api.getPromotions()])
+      .then(([variants, promotions]) => { if (!cancelled) setPricingRefs({ variants: variants || [], promotions: promotions || [] }); })
+      .catch((err) => console.warn('Admin pricing check notice:', err));
+    return () => { cancelled = true; };
+  }, [session]);
+  const priceCatalog = { products, ...pricingRefs, shippingFee: STORE_CONFIG.faculty.shippingFee };
+
   // Latest products, for joining `products` onto orders that arrive through realtime
   const productsRef = useRef(products);
   productsRef.current = products;
@@ -230,7 +247,8 @@ export default function AdminView({ onBackToStore }) {
           return next;
         });
       };
-      const sub = api.subscribeOrders(apply('INSERT'), apply('UPDATE'), apply('DELETE'));
+      // After the socket drops and rejoins, missed events are refetched once (debounced)
+      const sub = api.subscribeOrders(apply('INSERT'), apply('UPDATE'), apply('DELETE'), refetchOrders);
       return () => {
         refetchOrders.cancel();
         if (sub?.unsubscribe) sub.unsubscribe();
@@ -964,6 +982,17 @@ export default function AdminView({ onBackToStore }) {
                           {/* 4. Total Price */}
                           <td className="py-3.5 px-4 font-mono font-bold text-sm text-zinc-900">
                             {formatCurrency(order.total_price)}
+                            {(() => {
+                              const under = findUnderpayment(order, priceCatalog);
+                              return under && (
+                                <div
+                                  className="mt-1 inline-block px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-sans font-bold whitespace-nowrap"
+                                  title="คำนวณใหม่จากรายการสินค้าในออร์เดอร์ ด้วยราคาและโปรโมชั่นปัจจุบัน (ถ้าเพิ่งเปลี่ยนราคา/โปรฯ อาจคลาดเคลื่อน) — ตรวจยอดในสลิปก่อนยืนยัน"
+                                >
+                                  ยอดไม่ตรง (ควรเป็น {formatCurrency(under.expected)})
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* 5. Slip Thumbnail / Payment Mode */}
@@ -1261,7 +1290,13 @@ export default function AdminView({ onBackToStore }) {
               {/* Left: Slip Viewer */}
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative w-full h-80 bg-zinc-950 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
-                  {slipView.url ? (
+                  {slipView.url && slipView.kind === 'external' ? (
+                    <div className="px-4 text-center space-y-2">
+                      <div className="text-xs font-bold text-amber-300">⚠️ ลิงก์ภายนอก — ตรวจสอบก่อนเปิด</div>
+                      <div className="text-[11px] text-zinc-300 font-mono break-all select-all">{slipView.url}</div>
+                      <div className="text-[10px] text-zinc-500">สลิปนี้ไม่ได้อยู่ในระบบ (ข้อมูลเก่า หรือถูกแก้ไข) จึงไม่แสดงเป็นรูป</div>
+                    </div>
+                  ) : slipView.url ? (
                     <img decoding="async"
                       src={slipView.url}
                       alt="Slip"
@@ -1302,7 +1337,7 @@ export default function AdminView({ onBackToStore }) {
                   >
                     🔄 หมุน
                   </button>
-                  {slipView.url && (
+                  {slipView.url && slipView.kind !== 'external' && (
                     <a
                       href={slipView.url}
                       target="_blank"
@@ -1324,6 +1359,14 @@ export default function AdminView({ onBackToStore }) {
                       {formatCurrency(selectedSlipOrder.total_price)}
                     </span>
                   </div>
+                  {(() => {
+                    const under = findUnderpayment(selectedSlipOrder, priceCatalog);
+                    return under && (
+                      <div className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold">
+                        ⚠️ ยอดไม่ตรง (ควรเป็น {formatCurrency(under.expected)}) — คำนวณจากราคาและโปรโมชั่นปัจจุบัน
+                      </div>
+                    );
+                  })()}
 
                   <div className="space-y-1">
                     <div className="font-bold text-zinc-900">{selectedSlipOrder.full_name}</div>

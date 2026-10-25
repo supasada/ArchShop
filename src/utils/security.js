@@ -120,6 +120,14 @@ export function resolveSlipSource(stored) {
   return path ? { kind: 'storage', path } : { kind: 'none' };
 }
 
+// What slipObjectName() produces. The same pattern is enforced by the database for customer
+// inserts (public.slip_object_name_pattern(), migration 0016): keep the two in sync.
+export const SLIP_OBJECT_NAME_RE = /^slip_[A-Za-z0-9]{1,20}_[0-9]{1,16}_[0-9a-f]{1,64}\.[a-z0-9]{1,5}$/;
+
+export function isSlipObjectName(value) {
+  return typeof value === 'string' && SLIP_OBJECT_NAME_RE.test(value);
+}
+
 /** Object name for a new slip: unguessable, no overwrite needed (bucket allows INSERT only). */
 export function slipObjectName(studentId, fileName, now = Date.now(), random = randomToken()) {
   const cleanId = String(studentId || 'std').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'std';

@@ -7,7 +7,7 @@ import { compressImage } from '../utils/imageCompress';
 import { scopeRefsFromPayload, scopeRowsFromRefs } from '../utils/promotionRefs';
 import { sanitizeOrderItems, appendPersonalizationNote, isMissingOrderItemsColumn } from '../utils/personalization';
 import { FULFILLMENT_STATUSES, chunkIds } from '../utils/fulfillment';
-import { ORDER_SELECT, ORDER_FALLBACK_SELECT } from '../utils/orderRealtime';
+import { ORDER_SELECT, ORDER_FALLBACK_SELECT, createResubscribeTracker } from '../utils/orderRealtime';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 import {
   SLIP_BUCKET, SLIP_SIGNED_URL_SECONDS, TRACK_RESULT_LIMIT, buildTrackQuery, matchesTrackQuery,
@@ -347,6 +347,10 @@ export const api = {
         cleanUpdates[key] = updates[key];
       }
     });
+    // The edit form uses '' for "no product"; a uuid column rejects ''
+    ['product_id', 'product_variant_id'].forEach((key) => {
+      if (cleanUpdates[key] === '') cleanUpdates[key] = null;
+    });
 
     if (isLiveSupabase && supabase) {
       const { data, error } = await supabase.from('orders').update(cleanUpdates).eq('id', id).select();
@@ -412,22 +416,23 @@ export const api = {
     const name = slipObjectName(studentId, file.name || 'slip.jpg');
 
     if (isLiveSupabase && supabase) {
+      // Private bucket (migration 0016): customers may only INSERT, so no upsert
+      // (upsert needs SELECT + UPDATE) and nothing is read back. The order stores the
+      // object path; the admin page turns it into a short-lived signed URL.
+      // A failed upload stops the checkout: the order insert only accepts this object
+      // name (0016), and the old inline data: URL fallback put whole images into the row.
+      let error;
       try {
-        // Private bucket (migration 0016): customers may only INSERT, so no upsert
-        // (upsert needs SELECT + UPDATE) and nothing is read back. The order stores the
-        // object path; the admin page turns it into a short-lived signed URL.
-        const { error } = await supabase.storage.from(SLIP_BUCKET).upload(name, file, {
+        ({ error } = await supabase.storage.from(SLIP_BUCKET).upload(name, file, {
           cacheControl: '3600',
           upsert: false
-        });
-        if (!error) {
-          return name;
-        } else {
-          console.warn('Supabase storage upload notice:', error.message || error);
-        }
+        }));
       } catch (storageErr) {
-        console.warn('Supabase storage upload catch:', storageErr);
+        error = storageErr;
       }
+      if (!error) return name;
+      console.error('Supabase slip upload error:', error);
+      throw new Error('อัปโหลดสลิปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง' + (error?.message ? ` (${error.message})` : ''));
     }
 
     return new Promise((resolve) => {
@@ -445,17 +450,19 @@ export const api = {
   // Admin slip viewer: a URL for the stored payment_slip_url, requested only when a slip is
   // opened (not for every order in the list). Storage paths and legacy public URLs become a
   // 5-minute signed URL. Returns null when there is nothing to show.
+  // → { kind, url } (kind from resolveSlipSource). 'external' = a legacy / demo URL on another
+  // site: the admin page shows it as text with a warning, never as an image or link.
   async getSlipViewUrl(stored) {
     const src = resolveSlipSource(stored);
     if (src.kind === 'none') return null;
-    if (src.kind !== 'storage') return src.url;
+    if (src.kind !== 'storage') return { kind: src.kind, url: src.url };
     if (!isLiveSupabase || !supabase) return null;
     const { data, error } = await supabase.storage.from(SLIP_BUCKET).createSignedUrl(src.path, SLIP_SIGNED_URL_SECONDS);
     if (error || !data?.signedUrl) {
       console.warn('Supabase slip signed URL notice:', error);
       throw error || new Error('ไม่สามารถเปิดสลิปได้');
     }
-    return data.signedUrl;
+    return { kind: 'storage', url: data.signedUrl };
   },
 
   async uploadProductImage(file, side = 'front') {
@@ -470,6 +477,10 @@ export const api = {
         const { data } = supabase.storage.from('product-images').getPublicUrl(name);
         return data.publicUrl;
       }
+      // Do not fall back to a data: URL here: it would be saved into products / product_images
+      // and downloaded by every visitor (and hides a missing admin permission, migration 0016).
+      console.error('Supabase uploadProductImage error:', error);
+      throw error;
     }
     return new Promise((resolve) => {
       const reader = new FileReader();
@@ -481,14 +492,19 @@ export const api = {
   // Realtime
   // Handlers get (row, payload): row = payload.new (INSERT/UPDATE) or payload.old (DELETE);
   // payload.errors is set when Realtime could not send the full record.
-  subscribeOrders(onInsert, onUpdate, onDelete) {
+  // onResubscribed: called when the channel is SUBSCRIBED again after an error / timeout /
+  // close — events sent while the socket was down are lost, so the caller should refetch.
+  subscribeOrders(onInsert, onUpdate, onDelete, onResubscribed) {
     if (isLiveSupabase && supabase) {
+      const track = createResubscribeTracker();
       const channel = supabase
         .channel('realtime-orders')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, p => onInsert && onInsert(p.new, p))
         .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, p => onUpdate && onUpdate(p.new, p))
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, p => onDelete && onDelete(p.old, p))
-        .subscribe();
+        .subscribe((status) => {
+          if (track(status) && onResubscribed) onResubscribed();
+        });
 
       return {
         unsubscribe: () => {

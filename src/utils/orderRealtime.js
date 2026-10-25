@@ -84,3 +84,20 @@ export function applyOrderChange(list, change, products = []) {
   next[idx] = merged;
   return next;
 }
+
+// Channel status tracker for supabase.channel().subscribe(cb): returns true on a SUBSCRIBED
+// that follows CHANNEL_ERROR / TIMED_OUT / CLOSED (the socket rejoined). Changes made while
+// it was down were never delivered, so the caller refetches once.
+const LOST_STATUSES = ['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'];
+export function createResubscribeTracker() {
+  let lost = false;
+  return (status) => {
+    if (status === 'SUBSCRIBED') {
+      const resync = lost;
+      lost = false;
+      return resync;
+    }
+    if (LOST_STATUSES.includes(status)) lost = true;
+    return false;
+  };
+}

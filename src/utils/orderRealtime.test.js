@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  applyOrderChange, joinedProduct, ORDER_SELECT, ORDER_FALLBACK_SELECT, ORDER_COLUMNS
-} from './orderRealtime';
+  applyOrderChange, joinedProduct, ORDER_SELECT, ORDER_FALLBACK_SELECT, ORDER_COLUMNS, createResubscribeTracker } from './orderRealtime';
 
 const products = [
   { id: 'p1', name: 'Shirt', image_front_url: 'f1.jpg', description: 'long text', price: 219 },
@@ -86,5 +85,19 @@ describe('applyOrderChange', () => {
 
   it('tolerates a non-array list', () => {
     expect(applyOrderChange(null, { type: 'INSERT', row: { id: 'n', created_at: '2026-10-05T00:00:00Z' } }, products)).toHaveLength(1);
+  });
+});
+
+describe('createResubscribeTracker', () => {
+  it('asks for a refetch only when SUBSCRIBED follows a lost connection', () => {
+    const track = createResubscribeTracker();
+    expect(track('SUBSCRIBED')).toBe(false); // first join: the initial fetch covers it
+    expect(track('SUBSCRIBED')).toBe(false);
+    expect(track('CHANNEL_ERROR')).toBe(false);
+    expect(track('TIMED_OUT')).toBe(false);
+    expect(track('SUBSCRIBED')).toBe(true); // once per recovery
+    expect(track('SUBSCRIBED')).toBe(false);
+    expect(track('CLOSED')).toBe(false);
+    expect(track('SUBSCRIBED')).toBe(true);
   });
 });

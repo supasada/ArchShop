@@ -10,6 +10,8 @@ import {
   fromTrackRow,
   resolveSlipSource,
   slipObjectName,
+  isSlipObjectName,
+  SLIP_OBJECT_NAME_RE,
   newOrderId,
   isMissingFunctionError,
   adminLoginEmail
@@ -158,6 +160,26 @@ describe('slipObjectName / newOrderId', () => {
     expect(isUuid(a)).toBe(true);
     expect(a[14]).toBe('4');
     expect(newOrderId()).not.toBe(a);
+  });
+});
+
+describe('isSlipObjectName (mirrors the 0016 insert policy)', () => {
+  it('accepts what uploadSlip() generates', () => {
+    for (const [sid, file] of [['650610123', 'slip.jpg'], ['', 'IMG_0001.HEIC'], ['ศิษย์เก่า', 'noext'], ['x'.repeat(40), 'a.webp']]) {
+      expect(isSlipObjectName(slipObjectName(sid, file))).toBe(true);
+    }
+  });
+  it('rejects URLs, paths and anything else', () => {
+    for (const v of [
+      'https://evil.example/slip.jpg', 'javascript:alert(1)', 'data:image/png;base64,AAAA',
+      'payment-slips/slip_1_1_ab.jpg', '../slip_1_1_ab.jpg', 'slip_1_1_ab.jpg\nx', 'slip_1_1_AB.jpg', '', null
+    ]) {
+      expect(isSlipObjectName(v)).toBe(false);
+    }
+  });
+  it('is anchored', () => {
+    expect(SLIP_OBJECT_NAME_RE.source.startsWith('^')).toBe(true);
+    expect(SLIP_OBJECT_NAME_RE.source.endsWith('$')).toBe(true);
   });
 });
 
