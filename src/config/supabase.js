@@ -9,6 +9,10 @@ import { sanitizeOrderItems, appendPersonalizationNote, isMissingOrderItemsColum
 import { FULFILLMENT_STATUSES, chunkIds } from '../utils/fulfillment';
 import { ORDER_SELECT, ORDER_FALLBACK_SELECT } from '../utils/orderRealtime';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
+import {
+  SLIP_BUCKET, SLIP_SIGNED_URL_SECONDS, TRACK_RESULT_LIMIT, buildTrackQuery, matchesTrackQuery,
+  toTrackResult, fromTrackRow, resolveSlipSource, slipObjectName, newOrderId, isMissingFunctionError
+} from '../utils/security';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
 const supabaseAnonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY || localStorage.getItem('archshop_supabase_anon_key') || 'your-anon-key-here';
@@ -200,40 +204,42 @@ export const api = {
     if (orderItems.length > 0) cleanOrder.order_items = orderItems;
 
     if (isLiveSupabase && supabase) {
+      // The id is generated here and the row is inserted WITHOUT reading it back
+      // (no .select()): after migration 0016 customers may insert orders but not read them,
+      // and the receipt still gets its order id. Works the same before 0016.
+      cleanOrder.id = newOrderId();
+      const created = () => ({ ...cleanOrder, created_at: new Date().toISOString() });
+      let error;
       try {
-        let { data, error } = await supabase.from('orders').insert([cleanOrder]).select();
-        if (!error && data?.[0]) {
-          return data[0];
-        }
-        if (error && cleanOrder.order_items && isMissingOrderItemsColumn(error)) {
+        ({ error } = await supabase.from('orders').insert([cleanOrder]));
+        if (!error) return created();
+        if (cleanOrder.order_items && isMissingOrderItemsColumn(error)) {
           // Migration 0012 not run yet: save without the column, and keep the
           // names/numbers readable in the free-text part of notes so nothing is lost.
           console.warn('Supabase submitOrder notice (orders.order_items missing, retrying without it):', error);
           delete cleanOrder.order_items;
           cleanOrder.notes = appendPersonalizationNote(cleanOrder.notes, orderItems);
-          ({ data, error } = await supabase.from('orders').insert([cleanOrder]).select());
-          if (!error && data?.[0]) {
-            return data[0];
-          }
+          ({ error } = await supabase.from('orders').insert([cleanOrder]));
+          if (!error) return created();
         }
-        if (error) {
-          console.warn('Supabase submitOrder notice (attempting retry without product_id/product_variant_id):', error);
-          // If foreign key constraint or unknown-column failure occurred on product_id
-          // and/or product_variant_id (e.g. migration 0002 not yet applied), retry
-          // without both so a pre-migration database still gets the order recorded.
-          if (cleanOrder.product_id || cleanOrder.product_variant_id) {
-            cleanOrder.product_id = null;
-            cleanOrder.product_variant_id = null;
-            const retry = await supabase.from('orders').insert([cleanOrder]).select();
-            if (!retry.error && retry.data?.[0]) {
-              return retry.data[0];
-            }
-          }
-          console.warn('Supabase insert failed, saving to local orders storage fallback:', error.message);
+        // If foreign key constraint or unknown-column failure occurred on product_id
+        // and/or product_variant_id (e.g. migration 0002 not yet applied), retry
+        // without both so a pre-migration database still gets the order recorded.
+        if (cleanOrder.product_id || cleanOrder.product_variant_id) {
+          console.warn('Supabase submitOrder notice (retrying without product_id/product_variant_id):', error);
+          cleanOrder.product_id = null;
+          cleanOrder.product_variant_id = null;
+          ({ error } = await supabase.from('orders').insert([cleanOrder]));
+          if (!error) return created();
         }
       } catch (supaErr) {
-        console.warn('Supabase submitOrder caught exception:', supaErr);
+        error = supaErr;
       }
+      // Live database refused the order: say so instead of pretending it was saved
+      // (the old local-storage fallback here showed a receipt for an order the club never got).
+      console.error('Supabase submitOrder error:', error);
+      throw new Error('บันทึกคำสั่งซื้อไม่สำเร็จ กรุณาลองใหม่อีกครั้ง หรือติดต่อสโมสรนักศึกษา' +
+        (error?.message ? ` (${error.message})` : ''));
     }
 
     // Safe fallback to localStorage mock orders
@@ -282,44 +288,50 @@ export const api = {
     }
   },
 
-  async trackOrder(term) {
-    if (!term || typeof term !== 'string') return [];
-    const cleanTerm = term.trim();
-    if (!cleanTerm) return [];
+  // Customer order tracking: exact full order id, OR exact student id + phone together.
+  // Live: the track_orders() RPC (migration 0016) — returns only display fields, phone masked.
+  async trackOrder({ orderId, studentId, phone } = {}) {
+    const query = buildTrackQuery({ orderId, studentId, phone });
+    if (!query.ok) throw new Error(query.error);
+    const { params } = query;
 
     if (isLiveSupabase && supabase) {
-      // Check if cleanTerm matches UUID regex format
-      const isUUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(cleanTerm);
-
-      let query = supabase.from('orders').select('*, products(*)');
-
-      if (isUUID) {
-        query = query.eq('id', cleanTerm);
-      } else {
-        // Safe multi-field partial matching across text columns
-        query = query.or(
-          `student_id.ilike.%${cleanTerm}%,phone_number.ilike.%${cleanTerm}%,full_name.ilike.%${cleanTerm}%,email_or_line_id.ilike.%${cleanTerm}%`
-        );
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-      if (error) {
+      const { data, error } = await supabase.rpc('track_orders', params);
+      if (!error) return (Array.isArray(data) ? data : []).map(fromTrackRow);
+      if (!isMissingFunctionError(error)) {
         console.error('Supabase trackOrder error:', error);
         throw error;
       }
-      return data || [];
+      // Migration 0016 not run yet (orders still readable by anon): same exact-match rule.
+      console.warn('Supabase trackOrder notice (track_orders() missing; run migration 0016):', error);
+      let fallback = supabase.from('orders').select('*, products(name, price, production_note)');
+      fallback = params.p_order_id ? fallback.eq('id', params.p_order_id) : fallback.eq('student_id', params.p_student_id);
+      const res = await fallback.order('created_at', { ascending: false }).limit(200);
+      if (res.error) {
+        console.error('Supabase trackOrder error:', res.error);
+        throw res.error;
+      }
+      return (res.data || []).filter((o) => matchesTrackQuery(o, params)).slice(0, TRACK_RESULT_LIMIT).map(toTrackResult);
     }
 
     const local = localStorage.getItem('archshop_mock_orders');
     const orders = local ? JSON.parse(local) : MOCK_ORDERS;
-    const lower = cleanTerm.toLowerCase();
-    return orders.filter(o => 
-      String(o.id || '').toLowerCase().includes(lower) ||
-      String(o.student_id || '').toLowerCase().includes(lower) ||
-      String(o.phone_number || '').includes(cleanTerm) ||
-      String(o.full_name || '').toLowerCase().includes(lower) ||
-      String(o.email_or_line_id || '').toLowerCase().includes(lower)
-    );
+    return (Array.isArray(orders) ? orders : [])
+      .filter((o) => matchesTrackQuery(o, params))
+      .slice(0, TRACK_RESULT_LIMIT)
+      .map(toTrackResult);
+  },
+
+  // Admin check after login (migration 0016: public.admin_users + is_admin()).
+  // → { isAdmin: boolean, missing: boolean }. missing = the function does not exist yet.
+  async checkIsAdmin() {
+    if (!isLiveSupabase || !supabase) return { isAdmin: true, missing: false };
+    const { data, error } = await supabase.rpc('is_admin');
+    if (error) {
+      if (isMissingFunctionError(error)) return { isAdmin: false, missing: true };
+      throw error;
+    }
+    return { isAdmin: data === true, missing: false };
   },
 
   async updateOrder(id, updates) {
@@ -397,20 +409,19 @@ export const api = {
   async uploadSlip(file, studentId) {
     if (!file) return null;
     file = await compressImage(file);
-    const cleanId = String(studentId || 'std').replace(/[^a-zA-Z0-9]/g, '');
-    const ext = (file.name || 'slip.jpg').split('.').pop() || 'jpg';
-    const name = `slip_${cleanId}_${Date.now()}.${ext}`;
+    const name = slipObjectName(studentId, file.name || 'slip.jpg');
 
     if (isLiveSupabase && supabase) {
       try {
-        const { error } = await supabase.storage.from('payment-slips').upload(name, file, {
-          // File name is unique per upload, so the content never changes
-          cacheControl: '31536000',
-          upsert: true
+        // Private bucket (migration 0016): customers may only INSERT, so no upsert
+        // (upsert needs SELECT + UPDATE) and nothing is read back. The order stores the
+        // object path; the admin page turns it into a short-lived signed URL.
+        const { error } = await supabase.storage.from(SLIP_BUCKET).upload(name, file, {
+          cacheControl: '3600',
+          upsert: false
         });
         if (!error) {
-          const { data } = supabase.storage.from('payment-slips').getPublicUrl(name);
-          if (data?.publicUrl) return data.publicUrl;
+          return name;
         } else {
           console.warn('Supabase storage upload notice:', error.message || error);
         }
@@ -431,6 +442,21 @@ export const api = {
     });
   },
 
+  // Admin slip viewer: a URL for the stored payment_slip_url, requested only when a slip is
+  // opened (not for every order in the list). Storage paths and legacy public URLs become a
+  // 5-minute signed URL. Returns null when there is nothing to show.
+  async getSlipViewUrl(stored) {
+    const src = resolveSlipSource(stored);
+    if (src.kind === 'none') return null;
+    if (src.kind !== 'storage') return src.url;
+    if (!isLiveSupabase || !supabase) return null;
+    const { data, error } = await supabase.storage.from(SLIP_BUCKET).createSignedUrl(src.path, SLIP_SIGNED_URL_SECONDS);
+    if (error || !data?.signedUrl) {
+      console.warn('Supabase slip signed URL notice:', error);
+      throw error || new Error('ไม่สามารถเปิดสลิปได้');
+    }
+    return data.signedUrl;
+  },
 
   async uploadProductImage(file, side = 'front') {
     if (!file) return null;

@@ -1,4 +1,11 @@
-﻿-- ==============================================================================
+-- ==============================================================================
+-- !!! DANGEROUS / OBSOLETE — DO NOT RUN !!!
+-- This script gives the public anon key (shipped in the website's JS) FULL read/write/
+-- delete access to orders (customer names, phones, student IDs, slips) and products.
+-- It is kept only for history. Use supabase/migrations/0016_security_lockdown.sql instead;
+-- if this file was run again by mistake, re-run 0016 immediately.
+-- ==============================================================================
+-- ==============================================================================
 -- FIX NOT NULL CONSTRAINT & FOREIGN KEYS (แก้ปัญหาลบสินค้าไม่ได้)
 -- ก๊อปปี้โค้ดทั้งหมดนี้ไปวางใน Supabase Dashboard > SQL Editor แล้วกด RUN
 -- ==============================================================================

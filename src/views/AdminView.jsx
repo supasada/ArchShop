@@ -16,12 +16,40 @@ import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFil
 import { applyOrderChange } from '../utils/orderRealtime';
 import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { STORE_CONFIG } from '../config/storeConfig';
+import { adminLoginEmail } from '../utils/security';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
 import ProductGalleryManager from '../components/admin/ProductGalleryManager';
 import PromotionManager from '../components/admin/PromotionManager';
 import CountdownEventManager from '../components/admin/CountdownEventManager';
 
+
+// Local demo mode only (no Supabase configured): a mock login that edits localStorage data.
+// No real password ships in the bundle: set VITE_DEV_ADMIN_PASSWORD, or use the obvious
+// placeholder below, which only exists in `npm run dev` builds.
+const DEV_ADMIN_PASSWORD = import.meta.env?.VITE_DEV_ADMIN_PASSWORD || (import.meta.env?.DEV ? 'dev-only-admin' : '');
+const NOT_ADMIN_MESSAGE = 'บัญชีนี้ไม่มีสิทธิ์แอดมิน';
+
+// After a Supabase login: the account must be in public.admin_users (migration 0016).
+// Signs out and throws when it is not. Before 0016 is run (no is_admin()), login is allowed
+// as before, with a console warning.
+async function ensureAdminSession() {
+  let result;
+  try {
+    result = await api.checkIsAdmin();
+  } catch (err) {
+    await supabase.auth.signOut();
+    throw new Error('ตรวจสอบสิทธิ์แอดมินไม่สำเร็จ: ' + (err?.message || err));
+  }
+  if (result.missing) {
+    console.warn('is_admin() not found: run supabase/migrations/0016_security_lockdown.sql. Any Supabase Auth user can use the admin page until then.');
+    return;
+  }
+  if (!result.isAdmin) {
+    await supabase.auth.signOut();
+    throw new Error(NOT_ADMIN_MESSAGE);
+  }
+}
 
 export default function AdminView({ onBackToStore }) {
   const [session, setSession] = useState(null);
@@ -48,6 +76,24 @@ export default function AdminView({ onBackToStore }) {
   const [selectedSlipOrder, setSelectedSlipOrder] = useState(null);
   const [slipZoom, setSlipZoom] = useState(1);
   const [slipRotation, setSlipRotation] = useState(0);
+  // Private slips (migration 0016): a 5-minute signed URL, fetched only when a slip is opened
+  const [slipView, setSlipView] = useState({ url: null, loading: false, error: '' });
+  const selectedSlipRef = selectedSlipOrder ? `${selectedSlipOrder.id}|${selectedSlipOrder.payment_slip_url || ''}` : '';
+  useEffect(() => {
+    if (!selectedSlipOrder) {
+      setSlipView({ url: null, loading: false, error: '' });
+      return undefined;
+    }
+    let cancelled = false;
+    setSlipView({ url: null, loading: true, error: '' });
+    api.getSlipViewUrl(selectedSlipOrder.payment_slip_url)
+      .then((url) => { if (!cancelled) setSlipView({ url, loading: false, error: url ? '' : '- ไม่มีสลิป -' }); })
+      .catch((err) => {
+        if (!cancelled) setSlipView({ url: null, loading: false, error: 'เปิดสลิปไม่สำเร็จ: ' + (err?.message || err) });
+      });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedSlipRef]);
 
   // Product CRUD state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -108,8 +154,17 @@ export default function AdminView({ onBackToStore }) {
     async function checkAuth() {
       localStorage.removeItem('archshop_admin_lockout');
       if (isLiveSupabase && supabase) {
+        localStorage.removeItem('archshop_mock_admin_auth'); // the mock session never counts when live
         const { data } = await supabase.auth.getSession();
-        if (data.session) setSession(data.session);
+        if (data.session) {
+          try {
+            await ensureAdminSession();
+            setSession(data.session);
+          } catch (err) {
+            console.warn('Admin session rejected:', err?.message || err);
+            setSession(null);
+          }
+        }
       } else {
         const local = localStorage.getItem('archshop_mock_admin_auth');
         if (local) {
@@ -188,52 +243,31 @@ export default function AdminView({ onBackToStore }) {
     e.preventDefault();
     setLoading(true);
 
-    const inputUser = (email || '').trim().toLowerCase();
-    const inputPass = (password || '').trim();
+    const inputPass = password || '';
 
     try {
-      const isMasterAdmin = 
-        (inputUser === 'smoarchcmu' || 
-         inputUser.startsWith('smoarchcmu@') || 
-         inputUser === 'admin' || 
-         inputUser.startsWith('admin@')) && 
-        (inputPass === 'archcmu-2026' || inputPass === 'smocmu-2026');
-
-      if (isMasterAdmin) {
-        if (isLiveSupabase && supabase) {
-          const fullEmail = email.includes('@') ? email.trim() : `${email.trim()}@cmu.ac.th`;
-          try {
-            const { data, error } = await supabase.auth.signInWithPassword({ email: fullEmail, password: inputPass });
-            if (!error && data?.session) {
-              setSession(data.session);
-              return;
-            }
-          } catch (supaErr) {
-            console.warn('Supabase auth notice:', supaErr);
-          }
-        }
-
-        const mockSession = {
-          user: { 
-            email: email.includes('@') ? email.trim() : `${email.trim()}@cmu.ac.th`, 
-            id: 'smoarchcmu-admin' 
-          },
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000
-        };
-        localStorage.setItem('archshop_mock_admin_auth', JSON.stringify(mockSession));
-        setSession(mockSession);
-        return;
-      }
-
       if (isLiveSupabase && supabase) {
-        const fullEmail = email.includes('@') ? email.trim() : `${email.trim()}@cmu.ac.th`;
-        const { data, error } = await supabase.auth.signInWithPassword({ email: fullEmail, password: inputPass });
+        // Real Supabase Auth only. Admin rights come from public.admin_users, not from the password.
+        const { data, error } = await supabase.auth.signInWithPassword({ email: adminLoginEmail(email), password: inputPass });
         if (error) throw error;
+        await ensureAdminSession();
         setSession(data.session);
         return;
       }
 
-      throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      // Local demo mode (no Supabase configured)
+      if (!DEV_ADMIN_PASSWORD) {
+        throw new Error('ยังไม่ได้ตั้งค่า Supabase (โหมดทดลองต้องตั้ง VITE_DEV_ADMIN_PASSWORD)');
+      }
+      if (inputPass !== DEV_ADMIN_PASSWORD) {
+        throw new Error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      }
+      const mockSession = {
+        user: { email: adminLoginEmail(email), id: 'local-demo-admin' },
+        expiresAt: Date.now() + 24 * 60 * 60 * 1000
+      };
+      localStorage.setItem('archshop_mock_admin_auth', JSON.stringify(mockSession));
+      setSession(mockSession);
     } catch (err) {
       alert('เข้าสู่ระบบไม่สำเร็จ: ' + (err.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง'));
     } finally {
@@ -589,7 +623,7 @@ export default function AdminView({ onBackToStore }) {
 
           <div className="mt-4 p-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-center">
             <span className="text-[10px] text-zinc-500 font-mono flex items-center justify-center gap-1">
-              🔒 เข้ารหัสปลอดภัยด้วย SHA-256
+              🔒 {isLiveSupabase ? 'เข้าสู่ระบบด้วยบัญชีแอดมินของ Supabase' : 'โหมดทดลอง (ยังไม่ได้เชื่อม Supabase)'}
             </span>
           </div>
 
@@ -941,7 +975,7 @@ export default function AdminView({ onBackToStore }) {
                                 className="inline-flex flex-col items-center p-1 hover:bg-zinc-100 rounded-lg border border-zinc-200 transition-all hover:scale-105"
                                 title="คลิกเพื่อตรวจสลิป"
                               >
-                                <img loading="lazy" decoding="async" src={order.payment_slip_url} alt="Slip" className="w-9 h-9 object-cover rounded shadow-xs" />
+                                <span className="w-9 h-9 rounded bg-zinc-100 flex items-center justify-center text-base" aria-hidden="true">🧾</span>
                                 <span className="text-[9px] text-zinc-500 mt-0.5">ตรวจสลิป</span>
                               </button>
                             ) : (
@@ -1227,15 +1261,22 @@ export default function AdminView({ onBackToStore }) {
               {/* Left: Slip Viewer */}
               <div className="flex flex-col items-center space-y-3">
                 <div className="relative w-full h-80 bg-zinc-950 rounded-2xl overflow-hidden flex items-center justify-center border border-zinc-800">
-                  <img decoding="async"
-                    src={selectedSlipOrder.payment_slip_url}
-                    alt="Slip"
-                    style={{
-                      transform: `scale(${slipZoom}) rotate(${slipRotation}deg)`,
-                      transition: 'transform 0.2s ease'
-                    }}
-                    className="max-h-full max-w-full object-contain"
-                  />
+                  {slipView.url ? (
+                    <img decoding="async"
+                      src={slipView.url}
+                      alt="Slip"
+                      referrerPolicy="no-referrer"
+                      style={{
+                        transform: `scale(${slipZoom}) rotate(${slipRotation}deg)`,
+                        transition: 'transform 0.2s ease'
+                      }}
+                      className="max-h-full max-w-full object-contain"
+                    />
+                  ) : (
+                    <span className="text-xs text-zinc-400 font-mono px-4 text-center">
+                      {slipView.loading ? 'กำลังโหลดสลิป...' : (slipView.error || '- ไม่มีสลิป -')}
+                    </span>
+                  )}
                 </div>
                 
                 {/* Controls */}
@@ -1261,14 +1302,16 @@ export default function AdminView({ onBackToStore }) {
                   >
                     🔄 หมุน
                   </button>
-                  <a
-                    href={selectedSlipOrder.payment_slip_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-2.5 py-1 bg-zinc-900 text-white rounded-lg"
-                  >
-                    ↗️ เต็มจอ
-                  </a>
+                  {slipView.url && (
+                    <a
+                      href={slipView.url}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="px-2.5 py-1 bg-zinc-900 text-white rounded-lg"
+                    >
+                      ↗️ เต็มจอ
+                    </a>
+                  )}
                 </div>
               </div>
 

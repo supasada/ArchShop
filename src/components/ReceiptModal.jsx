@@ -185,7 +185,9 @@ export default function ReceiptModal({ order, product, onClose }) {
             <div className="flex justify-between items-center">
               <span className="text-zinc-500">วิธีรับสินค้า:</span>
               <span className="font-bold text-zinc-900">
-                {order.delivery_method === 'shipping' ? `🚚 พัสดุ (${order.shipping_address})` : `📍 ${STORE_CONFIG.faculty.pickupLocation}`}
+                {order.delivery_method === 'shipping'
+                  ? `🚚 พัสดุ${order.shipping_address ? ` (${order.shipping_address})` : ' (ตามที่อยู่ที่แจ้งไว้)'}`
+                  : `📍 ${STORE_CONFIG.faculty.pickupLocation}`}
               </span>
             </div>
             <div className="flex justify-between items-center pt-1 border-t border-zinc-200">

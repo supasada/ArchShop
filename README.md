@@ -105,6 +105,33 @@ VITE_SUPABASE_ANON_KEY=your-anon-key-here
 2. เข้าเมนู **SQL Editor** (ไอคอน `>_`) ทางซ้ายมือ -> กด **New query**
 3. คัดลอกโค้ดทั้งหมดจากไฟล์ [`supabase/FULL_DATABASE_SETUP.sql`](file:///C:/Users/ASUS/OneDrive/%E0%B9%80%E0%B8%AD%E0%B8%81%E0%B8%AA%E0%B8%B2%E0%B8%A3/ArchShop/supabase/FULL_DATABASE_SETUP.sql) ไปวางแล้วกด **RUN** ครั้งเดียวเสร็จสมบูรณ์ทันที!
 
+> ⚠️ หลังติดตั้งครั้งแรก ให้รัน `supabase/migrations/` ตามลำดับเลขไฟล์ (0002 → 0016) — ไฟล์ setup เดิมเปิดสิทธิ์ให้ทุกคนอ่าน/แก้ไขข้อมูล
+
+---
+
+## 🔐 ความปลอดภัย: ล็อกสิทธิ์ฐานข้อมูล (ต้องทำก่อน Deploy เวอร์ชันนี้)
+
+Anon key อยู่ในไฟล์ JS ที่ทุกคนดาวน์โหลดได้ นโยบายเดิม (`FIX_SUPABASE_PERMISSIONS.sql`, `schema.sql`,
+`FULL_DATABASE_SETUP.sql`, migration 0002–0013) เปิดให้ใครก็ได้อ่านข้อมูลลูกค้า แก้สถานะ หรือลบออเดอร์
+Migration `0016_security_lockdown.sql` ปิดช่องโหว่นี้ — **ทำตามลำดับนี้:**
+
+1. Supabase > **Authentication > Users > Add user**: สร้างบัญชีแอดมิน (เช่น `smoarchcmu@cmu.ac.th`) ด้วย **รหัสผ่านใหม่ที่แข็งแรง**
+   - รหัสผ่านเก่าที่เคยเขียนไว้ในโค้ด (`AdminView.jsx`) และในคู่มือนี้ **ถือว่ารั่วแล้ว** (อยู่ใน git history และไฟล์ JS ที่ deploy ไปแล้ว)
+     ถ้ามีผู้ใช้ใน Supabase Auth ที่ใช้รหัสนั้นอยู่ ให้เปลี่ยนรหัสทันที
+2. **Authentication > Sign In / Providers**: ปิด **"Allow new users to sign up"** (ไม่ให้ใครสมัครบัญชีเองได้)
+3. รัน migration ใน SQL Editor ตามลำดับ: `0012` → `0013` → `0014` → `0015` → `0016` (ถ้ายังไม่ได้รัน 0012–0015, ไฟล์ 0016 จะหยุดและแจ้งว่าขาดไฟล์ไหน)
+4. เพิ่มแอดมินลงตาราง `admin_users` (รันซ้ำสำหรับแอดมินแต่ละคน):
+   ```sql
+   insert into public.admin_users (user_id)
+   select id from auth.users where email = 'smoarchcmu@cmu.ac.th'
+   on conflict do nothing;
+   ```
+5. Deploy เว็บเวอร์ชันนี้ แล้วทดสอบ: เข้าหน้าแอดมินได้ / เปิดดูสลิปได้ / สั่งซื้อทดสอบได้ / เช็คสถานะด้วยรหัสนักศึกษา + เบอร์โทรได้
+
+หลังจากนี้ **ห้ามรัน** `FIX_SUPABASE_PERMISSIONS.sql`, `schema.sql` หรือ `FULL_DATABASE_SETUP.sql` ซ้ำ (จะเปิดสิทธิ์กลับ) — ถ้าเผลอรัน ให้รัน `0016` ซ้ำ
+บัญชีที่ล็อกอินได้แต่ไม่อยู่ใน `admin_users` จะเห็นข้อความ "บัญชีนี้ไม่มีสิทธิ์แอดมิน"
+สลิปโอนเงินอยู่ใน bucket `payment-slips` แบบ **private**: ลูกค้าอัปโหลดได้อย่างเดียว แอดมินเปิดดูผ่านลิงก์ชั่วคราว 5 นาที
+
 ---
 
 ## 📝 การปรับแต่งข้อมูลสโมสรและ PromptPay

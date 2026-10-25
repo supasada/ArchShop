@@ -1,0 +1,164 @@
+// Pure helpers for the security lockdown (migration 0016): order tracking input,
+// phone normalisation / masking, payment-slip storage paths, admin login.
+
+export const SLIP_BUCKET = 'payment-slips';
+export const SLIP_SIGNED_URL_SECONDS = 300; // admin slip viewer: 5-minute signed URL
+export const TRACK_RESULT_LIMIT = 20;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value) {
+  return UUID_RE.test(String(value ?? '').trim());
+}
+
+/** Digits only; "+66 81-234-5678" / "66812345678" → "0812345678". Same rule as SQL normalize_phone(). */
+export function normalizePhone(value) {
+  const digits = String(value ?? '').replace(/[^0-9]/g, '');
+  return /^66[0-9]{8,9}$/.test(digits) ? '0' + digits.slice(2) : digits;
+}
+
+/** "0812345678" → "******5678" (same rule as track_orders()). */
+export function maskPhone(value) {
+  const d = normalizePhone(value);
+  return d.length > 4 ? '*'.repeat(d.length - 4) + d.slice(-4) : '****';
+}
+
+export function normalizeStudentId(value) {
+  return String(value ?? '').trim().toUpperCase();
+}
+
+/**
+ * Validate the tracking form. Either the full order id, or student id + phone together.
+ * → { ok: true, params: { p_order_id, p_student_id, p_phone } } | { ok: false, error }
+ */
+export function buildTrackQuery({ orderId, studentId, phone } = {}) {
+  const oid = String(orderId ?? '').trim().replace(/^#/, '');
+  if (oid) {
+    if (!isUuid(oid)) {
+      return { ok: false, error: 'กรุณากรอกเลขที่ออเดอร์แบบเต็ม (เช่น 1a2b3c4d-…-…) ตามที่อยู่บนใบเสร็จ' };
+    }
+    return { ok: true, params: { p_order_id: oid.toLowerCase(), p_student_id: null, p_phone: null } };
+  }
+  const sid = normalizeStudentId(studentId);
+  const ph = normalizePhone(phone);
+  if (sid.length < 3 || ph.length < 9) {
+    return { ok: false, error: 'กรุณากรอกรหัสนักศึกษาและเบอร์โทรศัพท์ที่ใช้ตอนสั่งซื้อให้ครบทั้งสองช่อง' };
+  }
+  return { ok: true, params: { p_order_id: null, p_student_id: sid, p_phone: ph } };
+}
+
+/** Same matching rule as track_orders(), for local/mock data and the pre-migration fallback. */
+export function matchesTrackQuery(order, params) {
+  if (!order || !params) return false;
+  if (params.p_order_id) return String(order.id || '').toLowerCase() === params.p_order_id;
+  return normalizeStudentId(order.student_id) === params.p_student_id &&
+    normalizePhone(order.phone_number) === params.p_phone;
+}
+
+/** Only what the tracking card / receipt shows, phone masked (mirrors track_orders()). */
+export function toTrackResult(order) {
+  const p = order?.products || null;
+  return {
+    id: order.id,
+    created_at: order.created_at,
+    full_name: order.full_name,
+    student_id: order.student_id,
+    year_of_study: order.year_of_study,
+    major: order.major,
+    phone_number: maskPhone(order.phone_number),
+    color: order.color,
+    size: order.size,
+    quantity: order.quantity,
+    total_price: order.total_price,
+    delivery_method: order.delivery_method,
+    payment_status: order.payment_status,
+    fulfillment_status: order.fulfillment_status,
+    tracking_number: order.tracking_number || null,
+    order_items: order.order_items ?? null,
+    products: p ? { name: p.name, price: p.price, production_note: p.production_note ?? null } : null
+  };
+}
+
+/** track_orders() row → the shape TrackingModal / ReceiptModal read. */
+export function fromTrackRow(row) {
+  if (!row) return null;
+  const { phone_masked, product_name, product_price, product_production_note, ...rest } = row;
+  return {
+    ...rest,
+    phone_number: phone_masked,
+    products: product_name != null
+      ? { name: product_name, price: product_price, production_note: product_production_note }
+      : null
+  };
+}
+
+/**
+ * Where a stored orders.payment_slip_url points:
+ *   { kind: 'storage', path }   object in the payment-slips bucket (new rows store the bare path;
+ *                               legacy rows store a full public / signed Supabase URL)
+ *   { kind: 'inline', url }     data:image/... (upload failed, image saved in the row)
+ *   { kind: 'external', url }   any other http(s) URL (e.g. demo data)
+ *   { kind: 'none' }
+ */
+export function resolveSlipSource(stored) {
+  const value = String(stored ?? '').trim();
+  if (!value) return { kind: 'none' };
+  if (/^data:image\//i.test(value)) return { kind: 'inline', url: value };
+  if (/^https?:\/\//i.test(value)) {
+    const marker = value.match(/\/storage\/v1\/object\/(?:public|sign|authenticated)\/payment-slips\/([^?#]+)/);
+    if (marker) {
+      try {
+        return { kind: 'storage', path: decodeURIComponent(marker[1]) };
+      } catch {
+        return { kind: 'storage', path: marker[1] };
+      }
+    }
+    return { kind: 'external', url: value };
+  }
+  if (/^[a-z]+:/i.test(value)) return { kind: 'none' }; // javascript:, blob:, …: never render
+  const path = value.replace(/^\/+/, '').replace(/^payment-slips\//, '');
+  return path ? { kind: 'storage', path } : { kind: 'none' };
+}
+
+/** Object name for a new slip: unguessable, no overwrite needed (bucket allows INSERT only). */
+export function slipObjectName(studentId, fileName, now = Date.now(), random = randomToken()) {
+  const cleanId = String(studentId || 'std').replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'std';
+  const rawExt = String(fileName || '').includes('.') ? String(fileName).split('.').pop() : 'jpg';
+  const ext = (rawExt || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'jpg';
+  return `slip_${cleanId}_${now}_${random}.${ext}`;
+}
+
+export function randomToken() {
+  const c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID().replace(/-/g, '');
+  if (c?.getRandomValues) {
+    const bytes = c.getRandomValues(new Uint8Array(16));
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return Math.random().toString(16).slice(2) + Date.now().toString(16);
+}
+
+/** Order id generated in the browser, so the receipt has it without reading the row back. */
+export function newOrderId() {
+  const c = typeof globalThis !== 'undefined' ? globalThis.crypto : undefined;
+  if (c?.randomUUID) return c.randomUUID();
+  const b = c?.getRandomValues ? c.getRandomValues(new Uint8Array(16)) : Uint8Array.from({ length: 16 }, () => Math.floor(Math.random() * 256));
+  b[6] = (b[6] & 0x0f) | 0x40;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/** PostgREST / Postgres "function does not exist" (migration not run yet). */
+export function isMissingFunctionError(error) {
+  if (!error) return false;
+  const code = String(error.code || '');
+  const msg = String(error.message || error) + ' ' + String(error.details || '') + ' ' + String(error.hint || '');
+  return code === 'PGRST202' || code === '42883' || /could not find the function|function .* does not exist/i.test(msg);
+}
+
+/** "smoarchcmu" → "smoarchcmu@cmu.ac.th"; full e-mails unchanged. */
+export function adminLoginEmail(input) {
+  const v = String(input ?? '').trim();
+  return v.includes('@') ? v : `${v}@cmu.ac.th`;
+}

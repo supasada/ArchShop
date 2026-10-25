@@ -12,6 +12,7 @@
 4. [สร้างบัญชี Admin สำหรับเข้าสู่ระบบจัดการ](#4-สร้างบัญชี-admin)
 5. [เปิดใช้งาน Realtime Replication](#5-เปิดใช้งาน-realtime-replication)
 6. [เชื่อมต่อ URL และ Anon Key เข้ากับเว็บ](#6-เชื่อมต่อ-url-และ-anon-key-เข้ากับเว็บ)
+7. [ความปลอดภัย: ล็อกสิทธิ์ฐานข้อมูล (บังคับ)](#-ความปลอดภัย-ล็อกสิทธิ์ฐานข้อมูล-ต้องทำก่อน-deploy-เวอร์ชันนี้)
 
 ---
 
@@ -41,9 +42,9 @@
 
 ระบบต้องการ Storage Buckets ทั้งหมด 2 ถัง:
 1. **`product-images`**: เก็บรูปภาพเสื้อด้านหน้าและด้านหลัง (Public Read, Admin Write)
-2. **`payment-slips`**: เก็บรูปสลิปโอนเงินจากนักศึกษา (Public Upload, Admin Read)
+2. **`payment-slips`**: เก็บรูปสลิปโอนเงินจากนักศึกษา (ลูกค้าอัปโหลดได้อย่างเดียว, แอดมินเท่านั้นที่เปิดดูได้)
 
-> 💡 *หมายเหตุ:* คำสั่ง SQL ใน `schema.sql` ได้สร้าง Buckets และ Policies ให้อัตโนมัติแล้ว แต่คุณสามารถเข้าไปตรวจสอบได้ที่เมนู **Storage** ในแดชบอร์ด Supabase ว่ามีถัง `product-images` และ `payment-slips` ปรากฏอยู่และตั้งสถานะเป็น **Public bucket** เรียบร้อยแล้ว
+> 💡 *หมายเหตุ:* `schema.sql` สร้าง Buckets ให้ แต่ตั้ง `payment-slips` เป็น public — migration `0016_security_lockdown.sql` (ดูหัวข้อความปลอดภัยด้านล่าง) จะเปลี่ยน `payment-slips` เป็น **private** และตั้ง Policies ใหม่ทั้งหมด
 
 ---
 
@@ -56,9 +57,11 @@
 3. คลิกปุ่ม **"Add user"** -> เลือก **"Create user"**
 4. กรอกข้อมูล:
    - **Email:** `smoarchcmu@cmu.ac.th` (หรือ `smoarchcmu@arch.cmu.ac.th`)
-   - **Password:** `archcmu-2026`
+   - **Password:** ตั้งรหัสผ่านใหม่ที่แข็งแรง (อย่าใช้รหัสที่เคยอยู่ในคู่มือ/โค้ดเดิม — ถือว่ารั่วแล้ว)
    - ติ๊กเลือก **"Auto Confirm User?"** เป็น **Yes** (เพื่อให้ใช้งานได้ทันทีโดยไม่ต้องยืนยันอีเมล)
 5. คลิก **"Create user"**
+6. ปิด **Authentication > Sign In / Providers > "Allow new users to sign up"**
+7. หลังรัน migration `0016` ให้เพิ่มบัญชีนี้ลงตาราง `admin_users` (ดูหัวข้อความปลอดภัยด้านล่าง) — ล็อกอินได้อย่างเดียวยังไม่พอ
 
 ---
 
@@ -94,6 +97,31 @@ END $$;
 3. **นำไปกรอกได้ 2 วิธี:**
    - **วิธีที่ 1 (ผ่านหน้าเว็บโดยตรง):** เปิดเว็บ `index.html` แล้วคลิกที่ป้าย **"Demo / Local Mode"** หรือไอคอนฐานข้อมูลมุมบนขวา -> นำ URL และ Anon Key ไปวางแล้วกด **"บันทึกและเชื่อมต่อ"**
    - **วิธีที่ 2 (แก้ไขไฟล์ Config):** เปิดไฟล์ [`js/config.js`](file:///C:/Users/ASUS/OneDrive/%E0%B9%80%E0%B8%AD%E0%B8%81%E0%B8%AA%E0%B8%B2%E0%B8%A3/ArchShop/js/config.js) แล้วเปลี่ยนค่าในตัวแปร `APP_CONFIG.supabaseUrl` และ `APP_CONFIG.supabaseAnonKey`
+
+---
+
+## 🔐 ความปลอดภัย: ล็อกสิทธิ์ฐานข้อมูล (ต้องทำก่อน Deploy เวอร์ชันนี้)
+
+Anon key อยู่ในไฟล์ JS ที่ทุกคนดาวน์โหลดได้ นโยบายเดิม (`FIX_SUPABASE_PERMISSIONS.sql`, `schema.sql`,
+`FULL_DATABASE_SETUP.sql`, migration 0002–0013) เปิดให้ใครก็ได้อ่านข้อมูลลูกค้า แก้สถานะ หรือลบออเดอร์
+Migration `0016_security_lockdown.sql` ปิดช่องโหว่นี้ — **ทำตามลำดับนี้:**
+
+1. Supabase > **Authentication > Users > Add user**: สร้างบัญชีแอดมิน (เช่น `smoarchcmu@cmu.ac.th`) ด้วย **รหัสผ่านใหม่ที่แข็งแรง**
+   - รหัสผ่านเก่าที่เคยเขียนไว้ในโค้ด (`AdminView.jsx`) และในคู่มือนี้ **ถือว่ารั่วแล้ว** (อยู่ใน git history และไฟล์ JS ที่ deploy ไปแล้ว)
+     ถ้ามีผู้ใช้ใน Supabase Auth ที่ใช้รหัสนั้นอยู่ ให้เปลี่ยนรหัสทันที
+2. **Authentication > Sign In / Providers**: ปิด **"Allow new users to sign up"** (ไม่ให้ใครสมัครบัญชีเองได้)
+3. รัน migration ใน SQL Editor ตามลำดับ: `0012` → `0013` → `0014` → `0015` → `0016` (ถ้ายังไม่ได้รัน 0012–0015, ไฟล์ 0016 จะหยุดและแจ้งว่าขาดไฟล์ไหน)
+4. เพิ่มแอดมินลงตาราง `admin_users` (รันซ้ำสำหรับแอดมินแต่ละคน):
+   ```sql
+   insert into public.admin_users (user_id)
+   select id from auth.users where email = 'smoarchcmu@cmu.ac.th'
+   on conflict do nothing;
+   ```
+5. Deploy เว็บเวอร์ชันนี้ แล้วทดสอบ: เข้าหน้าแอดมินได้ / เปิดดูสลิปได้ / สั่งซื้อทดสอบได้ / เช็คสถานะด้วยรหัสนักศึกษา + เบอร์โทรได้
+
+หลังจากนี้ **ห้ามรัน** `FIX_SUPABASE_PERMISSIONS.sql`, `schema.sql` หรือ `FULL_DATABASE_SETUP.sql` ซ้ำ (จะเปิดสิทธิ์กลับ) — ถ้าเผลอรัน ให้รัน `0016` ซ้ำ
+บัญชีที่ล็อกอินได้แต่ไม่อยู่ใน `admin_users` จะเห็นข้อความ "บัญชีนี้ไม่มีสิทธิ์แอดมิน"
+สลิปโอนเงินอยู่ใน bucket `payment-slips` แบบ **private**: ลูกค้าอัปโหลดได้อย่างเดียว แอดมินเปิดดูผ่านลิงก์ชั่วคราว 5 นาที
 
 ---
 

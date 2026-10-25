@@ -7,36 +7,52 @@ import ReceiptModal from './ReceiptModal';
 import PersonalizationSummary from './PersonalizationSummary';
 import { personalizedItems } from '../utils/personalization';
 import { getFulfillmentProgress } from '../utils/fulfillment';
+import { buildTrackQuery } from '../utils/security';
 
 export default function TrackingModal({ isOpen, onClose }) {
   const { t, lang } = useLanguage();
-  const [term, setTerm] = useState('');
+  // Exact match only: the full order id, OR student id + phone together (track_orders RPC)
+  const [mode, setMode] = useState('student'); // 'student' | 'order'
+  const [orderId, setOrderId] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [phone, setPhone] = useState('');
+  const [formError, setFormError] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [viewingReceiptOrder, setViewingReceiptOrder] = useState(null);
 
   if (!isOpen) return null;
 
+  const canSearch = mode === 'order' ? orderId.trim() !== '' : studentId.trim() !== '' && phone.trim() !== '';
+
   const handleSearch = async (e) => {
     e?.preventDefault();
-    const cleanTerm = term.trim();
-    if (!cleanTerm) return;
-
+    if (!canSearch) return;
+    const query = mode === 'order' ? { orderId } : { studentId, phone };
+    const check = buildTrackQuery(query);
+    if (!check.ok) {
+      setFormError(check.error);
+      return;
+    }
+    setFormError('');
     setLoading(true);
     try {
-      const data = await api.trackOrder(cleanTerm);
+      const data = await api.trackOrder(query);
       setResults(data);
     } catch (err) {
-      alert('Error: ' + (err.message || err));
+      setFormError((t.trackingError || 'ค้นหาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง') + (err?.message ? ` (${err.message})` : ''));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleReset = () => {
-    setTerm('');
+  const switchMode = (next) => {
+    setMode(next);
+    setFormError('');
     setResults(null);
   };
+
+  const inputClass = 'w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm sm:text-xs font-mono focus:bg-white focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all';
 
   const stepLabel = (key) => ({
     paid: t.stepPaid || 'ชำระแล้ว',
@@ -74,42 +90,64 @@ export default function TrackingModal({ isOpen, onClose }) {
           </div>
 
           <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
-            {/* Search Box */}
-            <form onSubmit={handleSearch} className="space-y-2">
-              <label className="text-[11px] font-mono text-zinc-500">
-                {t.trackingSearchHelp}
-              </label>
-              <div className="flex flex-col xs:flex-row gap-2">
-                <div className="relative flex-1">
+            {/* Search Box: student ID + phone, or the full order ID from the receipt */}
+            <form onSubmit={handleSearch} className="space-y-2.5">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 rounded-xl text-[11px] font-bold">
+                {[
+                  { key: 'student', label: t.trackByStudent || 'รหัสนักศึกษา + เบอร์โทร' },
+                  { key: 'order', label: t.trackByOrderId || 'เลขที่ออเดอร์' }
+                ].map((m) => (
+                  <button
+                    key={m.key}
+                    type="button"
+                    onClick={() => switchMode(m.key)}
+                    className={`py-1.5 rounded-lg transition-all ${mode === m.key ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-800'}`}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-zinc-500">{t.trackingSearchHelp}</p>
+              {mode === 'order' ? (
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder={t.trackingOrderIdPlaceholder || 'เลขที่ออเดอร์แบบเต็มจากใบเสร็จ'}
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  className={inputClass}
+                />
+              ) : (
+                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
                   <input
                     type="text"
-                    placeholder={t.trackingInputPlaceholder}
-                    value={term}
-                    onChange={(e) => setTerm(e.target.value)}
-                    className="w-full pl-3.5 pr-8 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-sm sm:text-xs font-mono focus:bg-white focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 transition-all"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    placeholder={t.trackingStudentIdPlaceholder || 'รหัสนักศึกษา'}
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value)}
+                    className={inputClass}
                   />
-                  {term && (
-                    <button
-                      type="button"
-                      onClick={handleReset}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 text-xs p-1"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    placeholder={t.trackingPhonePlaceholder || 'เบอร์โทรที่ใช้ตอนสั่งซื้อ'}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className={inputClass}
+                  />
                 </div>
-                <button
-                  type="submit"
-                  disabled={loading || !term.trim()}
-                  className="px-5 py-2.5 bg-zinc-900 hover:bg-black disabled:bg-zinc-300 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
-                >
-                  {loading ? (
-                    <span>{t.searchingBtn}</span>
-                  ) : (
-                    <span>{t.searchBtn}</span>
-                  )}
-                </button>
-              </div>
+              )}
+              {formError && (
+                <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px]">{formError}</div>
+              )}
+              <button
+                type="submit"
+                disabled={loading || !canSearch}
+                className="w-full px-5 py-2.5 bg-zinc-900 hover:bg-black disabled:bg-zinc-300 text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <span>{loading ? t.searchingBtn : t.searchBtn}</span>
+              </button>
             </form>
 
             {/* Results Section */}
@@ -125,7 +163,7 @@ export default function TrackingModal({ isOpen, onClose }) {
               {results !== null && results.length === 0 && (
                 <div className="p-8 bg-zinc-50 rounded-xl border border-zinc-200 text-center space-y-2">
                   <div className="text-2xl">🔍</div>
-                  <p className="text-xs font-bold text-zinc-800">{t.searchNotFound} "{term}"</p>
+                  <p className="text-xs font-bold text-zinc-800">{t.searchNotFound}</p>
                   <p className="text-[10.5px] text-zinc-500">
                     {t.searchNotFoundSub}
                   </p>
@@ -262,8 +300,8 @@ export default function TrackingModal({ isOpen, onClose }) {
                       <div className="flex items-center gap-1.5">
                         <span className="text-zinc-500">{t.deliveryMethodLabel}</span>
                         <span className="font-medium text-zinc-800">
-                          {order.delivery_method === 'shipping' 
-                            ? `🚚 ${t.shippingOption} (${order.shipping_address || '-'})` 
+                          {order.delivery_method === 'shipping'
+                            ? `🚚 ${t.shippingOption}${order.shipping_address ? ` (${order.shipping_address})` : ''}`
                             : `📍 ${STORE_CONFIG.faculty.pickupLocation}`}
                         </span>
                       </div>

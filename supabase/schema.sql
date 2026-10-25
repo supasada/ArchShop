@@ -1,3 +1,6 @@
+-- !!! SECURITY: the RLS / storage policies in this file are PERMISSIVE (anyone with the
+-- !!! anon key can read and change orders). After running it, run every file in
+-- !!! supabase/migrations/ in order up to 0016_security_lockdown.sql, which replaces them.
 -- ==============================================================================
 -- ARCHITECTURE FACULTY STUDENT CLUB - SHIRT ORDERING SYSTEM
 -- Supabase SQL Schema & Row Level Security (RLS) Policies
