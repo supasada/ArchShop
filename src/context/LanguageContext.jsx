@@ -136,12 +136,12 @@ export const translations = {
 
     // Tracking Modal
     trackingTitle: 'ตรวจสอบสถานะคำสั่งซื้อ & พิมพ์ใบเสร็จ',
-    trackingSearchHelp: 'กรอกรหัสนักศึกษาคู่กับเบอร์โทรที่ใช้ตอนสั่งซื้อ หรือเลขที่ออเดอร์แบบเต็มจากใบเสร็จ (ต้องตรงทุกตัว)',
-    trackByStudent: 'รหัสนักศึกษา + เบอร์โทร',
+    trackingSearchHelp: 'กรอกเบอร์โทรที่ใช้ตอนสั่งซื้อ หรือเลขที่ออเดอร์ 8 ตัว (เช่น 1a2b3c4d) / เลขเต็มจากใบเสร็จ',
+    trackByPhone: 'เบอร์โทร',
     trackByOrderId: 'เลขที่ออเดอร์',
     trackingStudentIdPlaceholder: 'รหัสนักศึกษา เช่น 650610123',
     trackingPhonePlaceholder: 'เบอร์โทร เช่น 0812345678',
-    trackingOrderIdPlaceholder: 'เลขที่ออเดอร์แบบเต็มจากใบเสร็จ',
+    trackingOrderIdPlaceholder: 'เลขที่ออเดอร์ 8 ตัว เช่น 1a2b3c4d',
     trackingError: 'ค้นหาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง',
     searchBtn: '🔍 ค้นหา',
     searchingBtn: 'กำลังค้นหา...',
@@ -343,12 +343,12 @@ export const translations = {
 
     // Tracking Modal
     trackingTitle: 'Order Tracking & e-Receipt',
-    trackingSearchHelp: 'Enter your Student ID together with the phone number used when ordering, or the full Order ID from your receipt (exact match).',
-    trackByStudent: 'Student ID + phone',
+    trackingSearchHelp: 'Enter the phone number used when ordering, or your 8-character Order ID (e.g. 1a2b3c4d) / the full Order ID from your receipt.',
+    trackByPhone: 'Phone',
     trackByOrderId: 'Order ID',
     trackingStudentIdPlaceholder: 'Student ID, e.g. 650610123',
     trackingPhonePlaceholder: 'Phone, e.g. 0812345678',
-    trackingOrderIdPlaceholder: 'Full Order ID from your receipt',
+    trackingOrderIdPlaceholder: '8-character Order ID, e.g. 1a2b3c4d',
     trackingError: 'Search failed, please try again',
     searchBtn: '🔍 Search',
     searchingBtn: 'Searching...',
@@ -550,12 +550,12 @@ export const translations = {
 
     // Tracking Modal
     trackingTitle: '订单进度查询 & 打印电子收据',
-    trackingSearchHelp: '请输入学号及下单时填写的手机号，或收据上的完整订单编号（需完全一致）',
-    trackByStudent: '学号 + 手机号',
+    trackingSearchHelp: '请输入下单时填写的手机号，或8位订单编号（如 1a2b3c4d）/ 收据上的完整订单编号',
+    trackByPhone: '手机号',
     trackByOrderId: '订单编号',
     trackingStudentIdPlaceholder: '学号，例如：650610123',
     trackingPhonePlaceholder: '手机号，例如：0812345678',
-    trackingOrderIdPlaceholder: '收据上的完整订单编号',
+    trackingOrderIdPlaceholder: '8位订单编号，如 1a2b3c4d',
     trackingError: '查询失败，请重试',
     searchBtn: '🔍 立即查询',
     searchingBtn: '正在查询...',

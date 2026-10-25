@@ -11,10 +11,9 @@ import { buildTrackQuery } from '../utils/security';
 
 export default function TrackingModal({ isOpen, onClose }) {
   const { t, lang } = useLanguage();
-  // Exact match only: the full order id, OR student id + phone together (track_orders RPC)
-  const [mode, setMode] = useState('student'); // 'student' | 'order'
+  // Exact match only: the order id (full or 8-character ref), OR the phone number (track_orders RPC)
+  const [mode, setMode] = useState('phone'); // 'phone' | 'order'
   const [orderId, setOrderId] = useState('');
-  const [studentId, setStudentId] = useState('');
   const [phone, setPhone] = useState('');
   const [formError, setFormError] = useState('');
   const [results, setResults] = useState(null);
@@ -23,12 +22,12 @@ export default function TrackingModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  const canSearch = mode === 'order' ? orderId.trim() !== '' : studentId.trim() !== '' && phone.trim() !== '';
+  const canSearch = mode === 'order' ? orderId.trim() !== '' : phone.trim() !== '';
 
   const handleSearch = async (e) => {
     e?.preventDefault();
     if (!canSearch) return;
-    const query = mode === 'order' ? { orderId } : { studentId, phone };
+    const query = mode === 'order' ? { orderId } : { phone };
     const check = buildTrackQuery(query);
     if (!check.ok) {
       setFormError(check.error);
@@ -90,11 +89,11 @@ export default function TrackingModal({ isOpen, onClose }) {
           </div>
 
           <div className="p-4 sm:p-5 space-y-4 overflow-y-auto flex-1">
-            {/* Search Box: student ID + phone, or the full order ID from the receipt */}
+            {/* Search Box: phone number, or the order ID (8-character ref or full) */}
             <form onSubmit={handleSearch} className="space-y-2.5">
               <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-100 rounded-xl text-[11px] font-bold">
                 {[
-                  { key: 'student', label: t.trackByStudent || 'รหัสนักศึกษา + เบอร์โทร' },
+                  { key: 'phone', label: t.trackByPhone || 'เบอร์โทร' },
                   { key: 'order', label: t.trackByOrderId || 'เลขที่ออเดอร์' }
                 ].map((m) => (
                   <button
@@ -112,31 +111,20 @@ export default function TrackingModal({ isOpen, onClose }) {
                 <input
                   type="text"
                   autoComplete="off"
-                  placeholder={t.trackingOrderIdPlaceholder || 'เลขที่ออเดอร์แบบเต็มจากใบเสร็จ'}
+                  placeholder={t.trackingOrderIdPlaceholder || 'เลขที่ออเดอร์ 8 ตัว เช่น 1a2b3c4d'}
                   value={orderId}
                   onChange={(e) => setOrderId(e.target.value)}
                   className={inputClass}
                 />
               ) : (
-                <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    autoComplete="off"
-                    placeholder={t.trackingStudentIdPlaceholder || 'รหัสนักศึกษา'}
-                    value={studentId}
-                    onChange={(e) => setStudentId(e.target.value)}
-                    className={inputClass}
-                  />
-                  <input
-                    type="tel"
-                    autoComplete="tel"
-                    placeholder={t.trackingPhonePlaceholder || 'เบอร์โทรที่ใช้ตอนสั่งซื้อ'}
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
+                <input
+                  type="tel"
+                  autoComplete="tel"
+                  placeholder={t.trackingPhonePlaceholder || 'เบอร์โทรที่ใช้ตอนสั่งซื้อ'}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className={inputClass}
+                />
               )}
               {formError && (
                 <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px]">{formError}</div>

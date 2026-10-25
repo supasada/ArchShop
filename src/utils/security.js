@@ -11,6 +11,13 @@ export function isUuid(value) {
   return UUID_RE.test(String(value ?? '').trim());
 }
 
+// The short "#1a2b3c4d" ref shown on cards / in admin = the first 8 hex chars of the id
+const ORDER_REF_RE = /^[0-9a-f]{8}$/i;
+
+export function isOrderRef(value) {
+  return ORDER_REF_RE.test(String(value ?? '').trim());
+}
+
 /** Digits only; "+66 81-234-5678" / "66812345678" → "0812345678". Same rule as SQL normalize_phone(). */
 export function normalizePhone(value) {
   const digits = String(value ?? '').replace(/[^0-9]/g, '');
@@ -28,31 +35,33 @@ export function normalizeStudentId(value) {
 }
 
 /**
- * Validate the tracking form. Either the full order id, or student id + phone together.
+ * Validate the tracking form. Either the order id (full, or its 8-character ref), or the phone number alone.
+ * Student id is not accepted: ids are sequential, so anyone could walk through classmates' orders.
  * → { ok: true, params: { p_order_id, p_student_id, p_phone } } | { ok: false, error }
  */
-export function buildTrackQuery({ orderId, studentId, phone } = {}) {
+export function buildTrackQuery({ orderId, phone } = {}) {
   const oid = String(orderId ?? '').trim().replace(/^#/, '');
   if (oid) {
-    if (!isUuid(oid)) {
-      return { ok: false, error: 'กรุณากรอกเลขที่ออเดอร์แบบเต็ม (เช่น 1a2b3c4d-…-…) ตามที่อยู่บนใบเสร็จ' };
+    if (!isUuid(oid) && !isOrderRef(oid)) {
+      return { ok: false, error: 'กรุณากรอกเลขที่ออเดอร์ 8 ตัว (เช่น 1a2b3c4d) หรือเลขเต็มจากใบเสร็จ' };
     }
     return { ok: true, params: { p_order_id: oid.toLowerCase(), p_student_id: null, p_phone: null } };
   }
-  const sid = normalizeStudentId(studentId);
   const ph = normalizePhone(phone);
-  if (sid.length < 3 || ph.length < 9) {
-    return { ok: false, error: 'กรุณากรอกรหัสนักศึกษาและเบอร์โทรศัพท์ที่ใช้ตอนสั่งซื้อให้ครบทั้งสองช่อง' };
+  if (ph.length < 9) {
+    return { ok: false, error: 'กรุณากรอกเบอร์โทรศัพท์ที่ใช้ตอนสั่งซื้อให้ครบ (เช่น 0812345678)' };
   }
-  return { ok: true, params: { p_order_id: null, p_student_id: sid, p_phone: ph } };
+  return { ok: true, params: { p_order_id: null, p_student_id: null, p_phone: ph } };
 }
 
 /** Same matching rule as track_orders(), for local/mock data and the pre-migration fallback. */
 export function matchesTrackQuery(order, params) {
   if (!order || !params) return false;
-  if (params.p_order_id) return String(order.id || '').toLowerCase() === params.p_order_id;
-  return normalizeStudentId(order.student_id) === params.p_student_id &&
-    normalizePhone(order.phone_number) === params.p_phone;
+  if (params.p_order_id) {
+    const id = String(order.id || '').toLowerCase();
+    return isOrderRef(params.p_order_id) ? id.slice(0, 8) === params.p_order_id : id === params.p_order_id;
+  }
+  return Boolean(params.p_phone) && normalizePhone(order.phone_number) === params.p_phone;
 }
 
 /** Only what the tracking card / receipt shows, phone masked (mirrors track_orders()). */

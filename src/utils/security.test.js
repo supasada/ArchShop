@@ -71,20 +71,23 @@ describe('buildTrackQuery', () => {
       params: { p_order_id: ID, p_student_id: null, p_phone: null }
     });
   });
-  it('rejects a partial order id (the 8-character ref is not enough)', () => {
-    const r = buildTrackQuery({ orderId: 'cccccccc' });
-    expect(r.ok).toBe(false);
-    expect(r.error).toMatch(/เลขที่ออเดอร์/);
+  it('accepts the 8-character ref, but nothing shorter or in between', () => {
+    expect(buildTrackQuery({ orderId: '#CCCCCCCC' })).toEqual({
+      ok: true, params: { p_order_id: 'cccccccc', p_student_id: null, p_phone: null }
+    });
+    for (const bad of ['ccccccc', 'cccccccc-0', 'cccccccz', 'cccc%']) {
+      const r = buildTrackQuery({ orderId: bad });
+      expect(r.ok).toBe(false);
+      expect(r.error).toMatch(/เลขที่ออเดอร์/);
+    }
   });
-  it('needs student id AND phone together', () => {
+  it('searches by the full phone number alone, never by student id', () => {
     expect(buildTrackQuery({ studentId: '650610123' }).ok).toBe(false);
-    expect(buildTrackQuery({ phone: '0812345678' }).ok).toBe(false);
-    expect(buildTrackQuery({ studentId: '65', phone: '0812345678' }).ok).toBe(false);
-    expect(buildTrackQuery({ studentId: '650610123', phone: '08123' }).ok).toBe(false);
+    expect(buildTrackQuery({ phone: '08123' }).ok).toBe(false);
     expect(buildTrackQuery({}).ok).toBe(false);
-    expect(buildTrackQuery({ studentId: ' 650610123 ', phone: '+66 81 234 5678' })).toEqual({
+    expect(buildTrackQuery({ studentId: '650610123', phone: '+66 81 234 5678' })).toEqual({
       ok: true,
-      params: { p_order_id: null, p_student_id: '650610123', p_phone: '0812345678' }
+      params: { p_order_id: null, p_student_id: null, p_phone: '0812345678' }
     });
   });
 });
@@ -95,10 +98,14 @@ describe('matchesTrackQuery', () => {
     expect(matchesTrackQuery(order, { p_order_id: ID })).toBe(true);
     expect(matchesTrackQuery(order, { p_order_id: 'cccccccc-0000-4000-8000-000000000002' })).toBe(false);
   });
-  it('matches student id + normalised phone exactly, never partially', () => {
-    expect(matchesTrackQuery(order, { p_student_id: '650610123', p_phone: '0812345678' })).toBe(true);
-    expect(matchesTrackQuery(order, { p_student_id: '65061012', p_phone: '0812345678' })).toBe(false);
-    expect(matchesTrackQuery(order, { p_student_id: '650610123', p_phone: '081234567' })).toBe(false);
+  it('matches the 8-character ref by the start of the id only', () => {
+    expect(matchesTrackQuery(order, { p_order_id: ID.slice(0, 8) })).toBe(true);
+    expect(matchesTrackQuery(order, { p_order_id: 'dddddddd' })).toBe(false);
+  });
+  it('matches the normalised phone exactly, never partially or by student id', () => {
+    expect(matchesTrackQuery(order, { p_phone: '0812345678' })).toBe(true);
+    expect(matchesTrackQuery(order, { p_phone: '081234567' })).toBe(false);
+    expect(matchesTrackQuery(order, { p_student_id: '650610123' })).toBe(false);
     expect(matchesTrackQuery(null, { p_order_id: ID })).toBe(false);
   });
 });

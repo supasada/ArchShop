@@ -12,7 +12,7 @@ import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 import {
   SLIP_BUCKET, SLIP_SIGNED_URL_SECONDS, TRACK_RESULT_LIMIT, buildTrackQuery, matchesTrackQuery,
   toTrackResult, fromTrackRow, resolveSlipSource, slipObjectName, newOrderId, isMissingFunctionError,
-  describeOrderInsertError
+  describeOrderInsertError, isUuid
 } from '../utils/security';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -296,10 +296,10 @@ export const api = {
     }
   },
 
-  // Customer order tracking: exact full order id, OR exact student id + phone together.
+  // Customer order tracking: order id (full or 8-character ref), OR the exact phone number alone.
   // Live: the track_orders() RPC (migration 0016) — returns only display fields, phone masked.
-  async trackOrder({ orderId, studentId, phone } = {}) {
-    const query = buildTrackQuery({ orderId, studentId, phone });
+  async trackOrder({ orderId, phone } = {}) {
+    const query = buildTrackQuery({ orderId, phone });
     if (!query.ok) throw new Error(query.error);
     const { params } = query;
 
@@ -313,7 +313,9 @@ export const api = {
       // Migration 0016 not run yet (orders still readable by anon): same exact-match rule.
       console.warn('Supabase trackOrder notice (track_orders() missing; run migration 0016):', error);
       let fallback = supabase.from('orders').select('*, products(name, price, production_note)');
-      fallback = params.p_order_id ? fallback.eq('id', params.p_order_id) : fallback.eq('student_id', params.p_student_id);
+      // a short ref can't be matched with eq on a uuid column; this path is pre-0016 only
+      if (params.p_order_id && !isUuid(params.p_order_id)) return [];
+      fallback = params.p_order_id ? fallback.eq('id', params.p_order_id) : fallback.ilike('phone_number', `%${params.p_phone.slice(-4)}`);
       const res = await fallback.order('created_at', { ascending: false }).limit(200);
       if (res.error) {
         console.error('Supabase trackOrder error:', res.error);
