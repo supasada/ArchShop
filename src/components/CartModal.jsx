@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { formatCurrency, getPromptPayQRUrl } from '../utils/formatters';
 import { api } from '../config/supabase';
@@ -7,6 +7,7 @@ import { useCart } from '../context/CartContext';
 import { summarizePromotions } from '../utils/pricingEngine';
 import { buildOrderItems, cartHasPersonalization } from '../utils/personalization';
 import PersonalizationFields from './PersonalizationFields';
+import { indexSoldCounts, checkCartStock } from '../utils/stock';
 
 export default function CartModal({ isOpen, onClose, onSuccess }) {
   const { t } = useLanguage();
@@ -42,6 +43,10 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
 
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState(null);
+
+  // problems found by the last pre-submit stock check (cleared when the cart changes)
+  const [stockProblems, setStockProblems] = useState([]);
+  useEffect(() => { setStockProblems([]); }, [cartItems]);
 
   if (!isOpen) return null;
 
@@ -128,6 +133,23 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
 
     setIsSubmitting(true);
     try {
+      // 0. Re-check stock limits right before submitting (one get_sold_counts call + fresh limits).
+      // Client-side only, not transactional: two last-second orders can still oversell by a few.
+      // If the counts are unavailable (migration 0015 not run / offline) the order goes through.
+      const soldRows = await api.getSoldCounts();
+      if (soldRows) {
+        const catalog = await api.getStockLimits(
+          cartItems.map((it) => it.productId),
+          cartItems.map((it) => it.variantId)
+        );
+        const problems = catalog ? checkCartStock(cartItems, indexSoldCounts(soldRows), catalog) : [];
+        if (problems.length > 0) {
+          setStockProblems(problems);
+          alert('ขออภัย สินค้าบางรายการเหลือไม่พอ กรุณาลดจำนวนหรือเปลี่ยนไซส์ แล้วกดสั่งซื้ออีกครั้ง:\n\n• ' + problems.join('\n• '));
+          return;
+        }
+      }
+
       // 1. Upload Slip
       const slipUrl = await api.uploadSlip(slipFile, studentId);
 
@@ -636,6 +658,15 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
                     />
                     <span>ตรวจสอบตัวสะกดชื่อ/เบอร์แล้ว (สินค้าสั่งทำ ไม่รับเปลี่ยนคืน)</span>
                   </label>
+                )}
+
+                {stockProblems.length > 0 && (
+                  <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 space-y-1">
+                    <div className="font-bold">⚠️ สินค้าบางรายการเหลือไม่พอ กรุณาแก้ไขตะกร้าก่อนสั่งซื้อ:</div>
+                    <ul className="list-disc pl-5 space-y-0.5">
+                      {stockProblems.map((msg) => <li key={msg}>{msg}</li>)}
+                    </ul>
+                  </div>
                 )}
 
                 <button

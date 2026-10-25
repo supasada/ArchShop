@@ -7,10 +7,11 @@ import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 import PersonalizationFields from './PersonalizationFields';
 import { buildProductThumbs } from '../utils/productImages';
+import { indexSoldCounts, remainingFor, maxAddable, stockLabel, cartQtyFor, MAX_QTY_PER_LINE } from '../utils/stock';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
   const { t } = useLanguage();
-  const { addToCart, promotions } = useCart();
+  const { addToCart, promotions, cartItems } = useCart();
 
   const [quantity, setQuantity] = useState(1);
   const [showBack, setShowBack] = useState(false);
@@ -23,6 +24,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const [personalization, setPersonalization] = useState({});
 
   const [chartVersion, setChartVersion] = useState(0);
+  // units already ordered (get_sold_counts, one call per open); null = unknown → unlimited
+  const [sold, setSold] = useState(null);
 
   useEffect(() => {
     if (!product?.id) return;
@@ -36,8 +39,10 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     setPersonalization({});
     setViewImage(null);
     setGallery([]);
+    setSold(null);
     load();
     loadGallery();
+    api.getSoldCounts().then((rows) => { if (!cancelled) setSold(indexSoldCounts(rows)); });
 
     // live updates (admin edits) keep the current selection
     const subs = [
@@ -84,10 +89,31 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const sizes = Array.isArray(product?.available_sizes) ? product.available_sizes : [];
   const sizesFor = (v) => (variantCharts[v.id] || []).map((r) => r.size_label).filter(Boolean);
   const [variantSizes, setVariantSizes] = useState({});
+
+  // Stock: what can still be ordered for (variant, size), counting what is already in the cart.
+  // null = unlimited / unknown. Checked again right before submit in CartModal (not transactional).
+  const remFor = (variant, s) => remainingFor({ product, variant, size: s, sold, cartItems });
+  const inCart = (variant, s) => cartQtyFor(cartItems, { productId: product?.id, variantId: variant?.id || null, size: s }).size > 0;
+  const sizeBadge = (variant, s) => {
+    const rem = remFor(variant, s);
+    if (rem === 0 && inCart(variant, s)) return 'ในตะกร้าครบ';
+    return stockLabel(rem);
+  };
+
   const sizeOfVariant = (v) => {
     const options = sizesFor(v);
     if (options.length === 0) return '';
-    return options.includes(variantSizes[v.id]) ? variantSizes[v.id] : options[0];
+    const available = options.filter((s) => remFor(v, s) !== 0);
+    const chosen = variantSizes[v.id];
+    if (options.includes(chosen) && (available.includes(chosen) || available.length === 0)) return chosen;
+    return available[0] || options[0];
+  };
+  const maxForVariant = (v) => maxAddable(remFor(v, sizeOfVariant(v)));
+  const variantBadge = (v) => {
+    if (maxForVariant(v) === 0) {
+      return cartQtyFor(cartItems, { productId: product?.id, variantId: v.id }).total > 0 ? 'ในตะกร้าครบ' : 'หมด';
+    }
+    return stockLabel(remFor(v, null));
   };
   const colors = Array.isArray(product?.available_colors) ? product.available_colors : ['Deep Black'];
 
@@ -97,6 +123,33 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   useEffect(() => {
     if (!sizes.includes(size)) setSize(sizes[0] || '');
   }, [sizes]);
+
+  const maxBase = maxAddable(remFor(null, size));
+
+  // Move off a sold-out size and clamp quantities whenever stock, cart or selection changes
+  useEffect(() => {
+    if (!product || hasVariants) return;
+    if (sizes.length > 0 && remFor(null, size) === 0) {
+      const next = sizes.find((s) => remFor(null, s) !== 0);
+      if (next && next !== size) setSize(next);
+    }
+  }, [sold, cartItems, sizes, size, hasVariants]);
+
+  useEffect(() => {
+    if (!product) return;
+    setQuantity((q) => Math.max(1, Math.min(q, maxBase || 1)));
+    setVariantQuantities((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      for (const v of variants) {
+        if (!next[v.id]) continue;
+        const max = maxForVariant(v);
+        if (max === 0) { delete next[v.id]; changed = true; }
+        else if (next[v.id] > max) { next[v.id] = max; changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [sold, cartItems, size, variantSizes, variants, variantCharts, maxBase]);
   useEffect(() => {
     if (!colors.includes(color)) setColor(colors[0] || 'Deep Black');
   }, [colors]);
@@ -120,7 +173,9 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   const regularPrice = preview.rawSubtotal;
   const savings = preview.discount;
 
-  const canAdd = hasVariants ? selectedVariants.length > 0 : true;
+  const canAdd = hasVariants
+    ? selectedVariants.length > 0 && selectedVariants.every((v) => maxForVariant(v) > 0)
+    : maxBase > 0;
 
   // front, back, gallery…, then variant images
   const thumbs = buildProductThumbs(product, gallery, variants);
@@ -280,6 +335,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 quantities={variantQuantities}
                 onToggle={toggleVariant}
                 onQtyChange={setVariantQty}
+                maxFor={maxForVariant}
+                badgeFor={variantBadge}
               />
             )}
 
@@ -294,20 +351,26 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                       {(t.stepSizeNoNum || 'เลือกไซส์ (Size):')} <span className="text-amber-600">{v.name}</span>
                     </label>
                     <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                      {options.map((s) => (
-                        <button
-                          key={s}
-                          type="button"
-                          onClick={() => setVariantSizes((prev) => ({ ...prev, [v.id]: s }))}
-                          className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
-                            sizeOfVariant(v) === s
-                              ? 'border-black bg-black text-white shadow-xs'
-                              : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                          }`}
-                        >
-                          {s}
-                        </button>
-                      ))}
+                      {options.map((s) => {
+                        const badge = sizeBadge(v, s);
+                        const out = remFor(v, s) === 0;
+                        return (
+                          <button
+                            key={s}
+                            type="button"
+                            disabled={out}
+                            onClick={() => setVariantSizes((prev) => ({ ...prev, [v.id]: s }))}
+                            className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                              sizeOfVariant(v) === s && !out
+                                ? 'border-black bg-black text-white shadow-xs'
+                                : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                            }`}
+                          >
+                            {s}
+                            {badge && <span className={`block text-[9px] leading-tight font-sans ${out ? 'text-rose-600' : 'text-amber-600'}`}>{badge}</span>}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -318,20 +381,26 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                   {t.step1Size || '1. เลือกไซส์ (Size):'}
                 </label>
                 <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {sizes.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(s)}
-                      className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 ${
-                        size === s
-                          ? 'border-black bg-black text-white shadow-xs'
-                          : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+                  {sizes.map((s) => {
+                    const badge = sizeBadge(null, s);
+                    const out = remFor(null, s) === 0;
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        disabled={out}
+                        onClick={() => setSize(s)}
+                        className={`min-w-[44px] py-2 px-3 rounded-xl border font-mono text-xs sm:text-sm font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed ${
+                          size === s && !out
+                            ? 'border-black bg-black text-white shadow-xs'
+                            : 'border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300'
+                        }`}
+                      >
+                        {s}
+                        {badge && <span className={`block text-[9px] leading-tight font-sans ${out ? 'text-rose-600' : 'text-amber-600'}`}>{badge}</span>}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -379,12 +448,16 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                   <span className="w-10 sm:w-12 text-center font-mono font-bold text-xs sm:text-sm">{quantity}</span>
                   <button
                     type="button"
-                    onClick={() => setQuantity(Math.min(20, quantity + 1))}
+                    onClick={() => setQuantity(Math.max(1, Math.min(maxBase || 1, quantity + 1)))}
+                    disabled={quantity >= maxBase}
                     className="w-10 h-9 sm:w-11 sm:h-10 text-zinc-600 hover:bg-zinc-100 font-bold flex items-center justify-center text-base"
                   >
                     +
                   </button>
                 </div>
+                {maxBase > 0 && maxBase < MAX_QTY_PER_LINE && (
+                  <span className="ml-2 text-[11px] font-mono text-amber-600">สั่งได้อีกสูงสุด {maxBase} ชิ้น</span>
+                )}
               </div>
             )}
 
@@ -428,7 +501,12 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 <span>{t.saveAmountLabel || 'ประหยัดไป'} {formatCurrency(savings)}</span>
               </div>
             )}
-            {hasVariants && !canAdd && (
+            {!canAdd && (hasVariants ? selectedVariants.length > 0 : true) && (
+              <div className="pt-1 border-t border-zinc-800 text-[11px] text-rose-300">
+                ⛔ สินค้าที่เลือกหมดแล้ว (หรือมีในตะกร้าครบจำนวนที่เหลือแล้ว)
+              </div>
+            )}
+            {hasVariants && selectedVariants.length === 0 && (
               <div className="pt-1 border-t border-zinc-800 text-[11px] text-amber-300">
                 💡 เลือกตัวเลือกสินค้าอย่างน้อย 1 อย่างก่อนเพิ่มลงตะกร้า
               </div>

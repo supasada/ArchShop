@@ -96,7 +96,8 @@ export const api = {
     const allowedCols = [
       'name', 'description', 'price', 'available_sizes', 'available_colors',
       'image_front_url', 'image_back_url', 'is_active', 'order_deadline',
-      'show_promo_badge', 'show_size_chart', 'allow_personalization', 'production_note'
+      'show_promo_badge', 'show_size_chart', 'allow_personalization', 'production_note',
+      'size_stock_limits'
     ];
     const cleanUpdates = {};
     Object.keys(updates).forEach(key => {
@@ -517,6 +518,54 @@ export const api = {
     return { unsubscribe: () => {} };
   },
 
+  // Stock (migration 0015)
+  // Aggregated units ordered per (product_id, variant_id, size) over non-rejected orders —
+  // counts only, no personal data. One RPC returns every row (tiny payload).
+  // Returns null when unavailable (function missing / offline / mock mode): callers then
+  // treat everything as unlimited. Enforcement is client-side and NOT transactional
+  // (see src/utils/stock.js).
+  async getSoldCounts() {
+    if (!isLiveSupabase || !supabase) return null;
+    try {
+      const { data, error } = await supabase.rpc('get_sold_counts');
+      if (error) {
+        console.warn('Supabase getSoldCounts notice (stock limits not enforced; run migration 0015):', error);
+        return null;
+      }
+      return Array.isArray(data) ? data : null;
+    } catch (err) {
+      console.warn('getSoldCounts notice:', err);
+      return null;
+    }
+  },
+
+  // Fresh limits for the pre-submit check: one query for products, one for variants.
+  // Returns null on any error (the check is then skipped).
+  async getStockLimits(productIds, variantIds) {
+    if (!isLiveSupabase || !supabase) return null;
+    const uuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    const pids = [...new Set((productIds || []).filter((id) => uuid.test(String(id || ''))))];
+    const vids = [...new Set((variantIds || []).filter((id) => uuid.test(String(id || ''))))];
+    try {
+      const [prodRes, varRes] = await Promise.all([
+        pids.length > 0
+          ? supabase.from('products').select('id, name, size_stock_limits').in('id', pids)
+          : Promise.resolve({ data: [], error: null }),
+        vids.length > 0
+          ? supabase.from('product_variants').select('id, product_id, name, stock_limit, size_stock_limits').in('id', vids)
+          : Promise.resolve({ data: [], error: null })
+      ]);
+      if (prodRes.error || varRes.error) {
+        console.warn('Supabase getStockLimits notice:', prodRes.error || varRes.error);
+        return null;
+      }
+      return { products: prodRes.data || [], variants: varRes.data || [] };
+    } catch (err) {
+      console.warn('getStockLimits notice:', err);
+      return null;
+    }
+  },
+
   // Product Variants
   async getVariants(productId) {
     if (!productId) return [];
@@ -567,7 +616,7 @@ export const api = {
   },
 
   async updateVariant(id, updates) {
-    const allowedCols = ['name', 'price', 'available_sizes', 'available_colors', 'stock_limit', 'is_active', 'sort_order'];
+    const allowedCols = ['name', 'price', 'available_sizes', 'available_colors', 'stock_limit', 'size_stock_limits', 'is_active', 'sort_order'];
     const cleanUpdates = {};
     Object.keys(updates).forEach((key) => {
       if (allowedCols.includes(key)) cleanUpdates[key] = updates[key];

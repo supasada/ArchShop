@@ -8,6 +8,10 @@ import {
   FULFILLMENT_STATUSES, FULFILLMENT_LABELS, FULFILLMENT_BADGE_CLASSES,
   normalizeFulfillmentStatus, bulkFulfillmentTargets, isMissingFulfillmentColumn
 } from '../utils/fulfillment';
+import {
+  indexSoldCounts, soldFor, sizeLimitsFromInputs, sizeLimitInputs, parseLimitInput,
+  normalizeSizeLimits, soldOfLimitText, isMissingStockColumn
+} from '../utils/stock';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
@@ -61,6 +65,9 @@ export default function AdminView({ onBackToStore }) {
     production_note: '',
     order_deadline: ''
   });
+  // per-size stock limits for products without variants ({size: "30"}; blank = unlimited)
+  const [sizeStockInputs, setSizeStockInputs] = useState({});
+  const [productSold, setProductSold] = useState(null); // get_sold_counts index; null = unavailable
   const [uploadingFront, setUploadingFront] = useState(false);
   const [uploadingBack, setUploadingBack] = useState(false);
 
@@ -338,6 +345,8 @@ export default function AdminView({ onBackToStore }) {
       production_note: '',
       order_deadline: formatDateToInputLocal(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
     });
+    setSizeStockInputs({});
+    setProductSold(null);
     setIsProductModalOpen(true);
   };
 
@@ -358,6 +367,9 @@ export default function AdminView({ onBackToStore }) {
       production_note: p.production_note || '',
       order_deadline: p.order_deadline ? formatDateToInputLocal(p.order_deadline) : ''
     });
+    setSizeStockInputs(sizeLimitInputs(p.size_stock_limits));
+    setProductSold(null);
+    api.getSoldCounts().then((rows) => setProductSold(indexSoldCounts(rows)));
     setIsProductModalOpen(true);
   };
 
@@ -401,6 +413,13 @@ export default function AdminView({ onBackToStore }) {
     if (productionNote || (editingProduct && 'production_note' in editingProduct)) {
       payload.production_note = productionNote || null;
     }
+    // Same for size_stock_limits (migration 0015). Blank = unlimited; only offered sizes are kept.
+    const badSize = productFormData.available_sizes.find((sz) => (sizeStockInputs[sz] || '').trim() !== '' && parseLimitInput(sizeStockInputs[sz]) === null);
+    if (badSize) return alert(`สต๊อกไซส์ ${badSize} ต้องเป็นจำนวนเต็ม 0 ขึ้นไป หรือเว้นว่าง (ไม่จำกัด)`);
+    const sizeStockLimits = sizeLimitsFromInputs(sizeStockInputs, productFormData.available_sizes);
+    if (sizeStockLimits || (editingProduct && 'size_stock_limits' in editingProduct)) {
+      payload.size_stock_limits = sizeStockLimits;
+    }
 
     setLoading(true);
     try {
@@ -419,6 +438,8 @@ export default function AdminView({ onBackToStore }) {
         ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ allow_personalization — กรุณารัน supabase/migrations/0012_order_items_personalization.sql ก่อน'
         : isMissingFulfillmentColumn(err)
         ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ production_note — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
+        : isMissingStockColumn(err)
+        ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ size_stock_limits — กรุณารัน supabase/migrations/0015_size_stock_limits.sql ก่อน'
         : ''));
     } finally {
       setLoading(false);
@@ -1414,6 +1435,43 @@ export default function AdminView({ onBackToStore }) {
                   })}
                 </div>
               </div>
+
+              {/* Per-size stock (products without variants; variants have their own in VariantManager) */}
+              {productFormData.available_sizes.length > 0 && (
+                <div className="p-3 bg-zinc-50 rounded-xl border space-y-2">
+                  <label className="block font-bold text-zinc-700">สต๊อกต่อไซส์ (เว้นว่าง = ไม่จำกัด):</label>
+                  <p className="text-[11px] text-zinc-500">
+                    ใช้กับสินค้าที่ไม่มีตัวเลือก (Variants) — ถ้ามีตัวเลือก ให้กำหนดที่ปุ่ม "สต๊อก" ของแต่ละตัวเลือกด้านล่าง ·
+                    นับยอดจากทุกออร์เดอร์ที่ไม่ถูกปฏิเสธ
+                  </p>
+                  {editingProduct && !productSold && (
+                    <p className="text-[11px] text-amber-700">ยังดูยอดขายไม่ได้ (รัน migration 0015 ก่อน) — สต๊อกจะยังไม่ถูกบังคับใช้หน้าร้าน</p>
+                  )}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {productFormData.available_sizes.map((sz) => {
+                      const savedLimit = normalizeSizeLimits(editingProduct?.size_stock_limits)[sz] ?? null;
+                      return (
+                        <div key={sz} className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-zinc-700 w-12 shrink-0">{sz}</span>
+                          <input
+                            type="number"
+                            min="0"
+                            placeholder="ไม่จำกัด"
+                            value={sizeStockInputs[sz] ?? ''}
+                            onChange={(e) => setSizeStockInputs({ ...sizeStockInputs, [sz]: e.target.value })}
+                            className="w-20 px-2 py-1 bg-white border rounded-lg font-mono"
+                          />
+                          {editingProduct && productSold && (
+                            <span className="font-mono text-[11px] text-zinc-500 truncate">
+                              {soldOfLimitText(soldFor(productSold, { productId: editingProduct.id, variantId: null, size: sz }).size, savedLimit)}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
               {/* Colors */}
               <div>
