@@ -1,4 +1,5 @@
 import { formatPersonalizationText, buildPrintSheetRows } from './personalization';
+import { FULFILLMENT_LABELS, normalizeFulfillmentStatus } from './fulfillment';
 
 // Most cells hold customer-written text. A cell starting with = + - @ (or tab / CR) is run
 // as a formula by Excel / Sheets, so prefix it with a single quote to keep it plain text.
@@ -74,7 +75,8 @@ export function buildOrdersCSV(orders, products = []) {
     'ที่อยู่จัดส่ง (Shipping Address)',
     'ช่องทางการชำระเงิน (Payment Method)',
     'สถานะการชำระเงิน (Payment Status)',
-    'ลิงก์สลิปโอนเงิน (Slip URL)',
+    'สถานะการผลิต/จัดส่ง (Fulfillment)',
+    'ไฟล์สลิปโอนเงิน (Slip file — เปิดดูในหน้าแอดมิน)',
     'หมายเหตุ (Notes)',
     'ชื่อ/เบอร์บนเสื้อ (Name/Number)'
   ];
@@ -101,6 +103,7 @@ export function buildOrdersCSV(orders, products = []) {
       escapeCSV(o.shipping_address || '-'),
       escapeCSV(payMethodText),
       escapeCSV(o.payment_status),
+      escapeCSV(FULFILLMENT_LABELS[normalizeFulfillmentStatus(o.fulfillment_status)]),
       escapeCSV(o.payment_slip_url || '-'),
       escapeCSV(o.notes || '-'),
       escapeCSV(formatPersonalizationText(o.order_items))

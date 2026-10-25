@@ -236,9 +236,6 @@ export default function TrackingModal({ isOpen, onClose }) {
                                 <span className={`text-[10px] leading-tight ${step.current ? 'font-bold text-zinc-900' : step.reached ? 'text-zinc-700' : 'text-zinc-400'}`}>
                                   {stepLabel(step.key)}
                                 </span>
-                                {step.key === 'shipped' && step.reached && order.tracking_number && (
-                                  <span className="text-[9.5px] font-mono font-bold text-emerald-800 break-all">{order.tracking_number}</span>
-                                )}
                               </li>
                             ))}
                           </ol>

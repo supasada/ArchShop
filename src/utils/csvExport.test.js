@@ -36,6 +36,17 @@ describe('csv builders', () => {
     expect(row.endsWith('"ชื่อ/เบอร์บนเสื้อ: J [M]: =cmd #07"')).toBe(true);
   });
 
+  it('exports the fulfillment status (pending when the column is missing)', () => {
+    const csv = buildOrdersCSV([
+      { id: 'o1', payment_status: 'confirmed', fulfillment_status: 'in_production' },
+      { id: 'o2', payment_status: 'pending' }
+    ]);
+    const [header, r1, r2] = csv.replace('\uFEFF', '').split('\r\n');
+    expect(header).toContain('สถานะการผลิต/จัดส่ง (Fulfillment)');
+    expect(r1).toContain('"confirmed","ส่งผลิต"');
+    expect(r2).toContain('"pending","รอดำเนินการ"');
+  });
+
   it('print sheet keeps leading zeros and guards names', () => {
     const csv = buildPrintSheetCSV([{
       product: 'Jersey', variant: '', size: 'M', color: 'Home', name: '=evil', number: '07',

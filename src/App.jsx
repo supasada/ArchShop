@@ -9,10 +9,10 @@ import TrackingModal from './components/TrackingModal';
 import SizeChartModal from './components/SizeChartModal';
 import { api } from './config/supabase';
 import { debounce, REALTIME_DEBOUNCE_MS } from './utils/debounce';
-
-const PRODUCTS_POLL_MS = 60000;
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { CartProvider, useCart } from './context/CartContext';
+
+const PRODUCTS_POLL_MS = 60000;
 
 function ToastNotifier({ onOpenCart }) {
   const { toastMessage, setToastMessage } = useCart();
