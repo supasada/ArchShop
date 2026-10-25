@@ -5,12 +5,15 @@ import { api } from '../config/supabase';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { summarizePromotions } from '../utils/pricingEngine';
+import { buildOrderItems, cartHasPersonalization } from '../utils/personalization';
+import PersonalizationFields from './PersonalizationFields';
 
 export default function CartModal({ isOpen, onClose, onSuccess }) {
   const { t } = useLanguage();
   const { 
     cartItems, 
     updateQuantity, 
+    updatePersonalization,
     removeFromCart, 
     clearCart, 
     subtotal, 
@@ -35,10 +38,14 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
     notes: ''
   });
 
+  const [spellingConfirmed, setSpellingConfirmed] = useState(false);
+
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState(null);
 
   if (!isOpen) return null;
+
+  const needsSpellingCheck = cartHasPersonalization(cartItems);
 
   const shippingFee = deliveryMethod === 'shipping' ? STORE_CONFIG.faculty.shippingFee : 0;
   const grandTotal = subtotal + (cartItems.length > 0 ? shippingFee : 0);
@@ -109,6 +116,11 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
       return;
     }
 
+    if (needsSpellingCheck && !spellingConfirmed) {
+      alert('กรุณาตรวจสอบตัวสะกดชื่อ/เบอร์บนเสื้อ แล้วติ๊กยืนยันก่อนส่งคำสั่งซื้อ');
+      return;
+    }
+
     if (!slipFile) {
       alert(t.errSlip || 'กรุณาแนบภาพสลิปหลักฐานการโอนเงิน (PromptPay QR / บัญชีธนาคาร)');
       return;
@@ -148,6 +160,8 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
         shipping_address: deliveryMethod === 'shipping' ? address : null,
         notes: combinedNotes,
         payment_status: 'pending',
+        // structured copy incl. names/numbers; the notes summary above stays unchanged
+        order_items: buildOrderItems(cartItems),
         items: cartItems
       };
 
@@ -262,7 +276,8 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
 
               <div className="divide-y divide-zinc-100 border border-zinc-200 rounded-2xl overflow-hidden bg-zinc-50/50">
                 {cartItems.map((item) => (
-                  <div key={item.cartId} className="p-3 sm:p-4 flex items-center justify-between gap-3 bg-white hover:bg-zinc-50/60 transition-colors">
+                  <div key={item.cartId} className="bg-white">
+                  <div className="p-3 sm:p-4 flex items-center justify-between gap-3 bg-white hover:bg-zinc-50/60 transition-colors">
                     
                     {/* Thumbnail & Name */}
                     <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -330,6 +345,16 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
                       </button>
                     </div>
 
+                  </div>
+                  {item.allowPersonalization && (
+                    <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+                      <PersonalizationFields
+                        quantity={item.quantity}
+                        value={item.personalization}
+                        onChange={(list) => { updatePersonalization(item.cartId, list); setSpellingConfirmed(false); }}
+                      />
+                    </div>
+                  )}
                   </div>
                 ))}
               </div>
@@ -600,6 +625,18 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
                     <span className="text-emerald-600 text-base">{formatCurrency(grandTotal)}</span>
                   </div>
                 </div>
+
+                {needsSpellingCheck && (
+                  <label className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl text-xs font-bold text-amber-950 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={spellingConfirmed}
+                      onChange={(e) => setSpellingConfirmed(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>ตรวจสอบตัวสะกดชื่อ/เบอร์แล้ว (สินค้าสั่งทำ ไม่รับเปลี่ยนคืน)</span>
+                  </label>
+                )}
 
                 <button
                   type="submit"

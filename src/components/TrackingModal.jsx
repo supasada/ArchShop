@@ -4,6 +4,8 @@ import { formatCurrency, formatDateThai } from '../utils/formatters';
 import { STORE_CONFIG } from '../config/storeConfig';
 import { useLanguage } from '../context/LanguageContext';
 import ReceiptModal from './ReceiptModal';
+import PersonalizationSummary from './PersonalizationSummary';
+import { personalizedItems } from '../utils/personalization';
 
 export default function TrackingModal({ isOpen, onClose }) {
   const { t, lang } = useLanguage();
@@ -180,6 +182,19 @@ export default function TrackingModal({ isOpen, onClose }) {
                         </div>
                       </div>
                     </div>
+
+                    {/* Jersey names/numbers saved with the order */}
+                    {personalizedItems(order.order_items).length > 0 && (
+                      <div className="p-2.5 bg-zinc-50 rounded-lg border border-zinc-100 space-y-1.5 text-[11px]">
+                        <div className="font-bold text-zinc-700">👕 ชื่อ/เบอร์บนเสื้อ</div>
+                        {personalizedItems(order.order_items).map((it, idx) => (
+                          <div key={idx} className="space-y-0.5">
+                            <div className="text-zinc-600">{it.product_name} <span className="font-mono">[{it.size}]</span></div>
+                            <PersonalizationSummary units={it.personalization} />
+                          </div>
+                        ))}
+                      </div>
+                    )}
 
                     {/* Delivery & Status Details */}
                     <div className="text-[11px] text-zinc-600 space-y-1 pt-1 border-t">

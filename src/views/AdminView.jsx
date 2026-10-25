@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
-import { exportOrdersToCSV } from '../utils/csvExport';
+import { exportOrdersToCSV, exportPrintSheetToCSV } from '../utils/csvExport';
+import { personalizedItems } from '../utils/personalization';
+import PersonalizationSummary from '../components/PersonalizationSummary';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
@@ -24,6 +26,7 @@ export default function AdminView({ onBackToStore }) {
   // Order filters
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [printSheetIncludePending, setPrintSheetIncludePending] = useState(false);
   const [productFilter, setProductFilter] = useState([]); // selected product ids
   const [productFilterMode, setProductFilterMode] = useState('any'); // any | all | only
 
@@ -46,6 +49,7 @@ export default function AdminView({ onBackToStore }) {
     is_active: true,
     show_promo_badge: true,
     show_size_chart: true,
+    allow_personalization: false,
     order_deadline: ''
   });
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -288,6 +292,7 @@ export default function AdminView({ onBackToStore }) {
       is_active: true,
       show_promo_badge: true,
       show_size_chart: true,
+      allow_personalization: false,
       order_deadline: formatDateToInputLocal(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
     });
     setIsProductModalOpen(true);
@@ -306,6 +311,7 @@ export default function AdminView({ onBackToStore }) {
       is_active: p.is_active ?? true,
       show_promo_badge: p.show_promo_badge ?? true,
       show_size_chart: p.show_size_chart ?? true,
+      allow_personalization: p.allow_personalization === true,
       order_deadline: p.order_deadline ? formatDateToInputLocal(p.order_deadline) : ''
     });
     setIsProductModalOpen(true);
@@ -341,6 +347,11 @@ export default function AdminView({ onBackToStore }) {
       show_size_chart: Boolean(productFormData.show_size_chart),
       order_deadline: parsedDeadline
     };
+    // Only send the column when it is in use or already exists, so saving still works
+    // on a database where migration 0012 has not been run yet.
+    if (productFormData.allow_personalization || (editingProduct && 'allow_personalization' in editingProduct)) {
+      payload.allow_personalization = Boolean(productFormData.allow_personalization);
+    }
 
     setLoading(true);
     try {
@@ -354,7 +365,10 @@ export default function AdminView({ onBackToStore }) {
       setIsProductModalOpen(false);
       fetchData();
     } catch (err) {
-      alert('บันทึกสินค้าไม่สำเร็จ: ' + err.message);
+      const missingColumn = /allow_personalization/i.test(err?.message || '');
+      alert('บันทึกสินค้าไม่สำเร็จ: ' + err.message + (missingColumn
+        ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ allow_personalization — กรุณารัน supabase/migrations/0012_order_items_personalization.sql ก่อน'
+        : ''));
     } finally {
       setLoading(false);
     }
@@ -626,6 +640,25 @@ export default function AdminView({ onBackToStore }) {
               >
                 <span>📊 Export CSV</span>
               </button>
+
+              <div className="flex items-center gap-2 px-2 py-1 bg-zinc-50 border border-zinc-200 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => exportPrintSheetToCSV(filteredOrders, products, { includeUnconfirmed: printSheetIncludePending })}
+                  className="px-3 py-1.5 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-lg transition-all shadow-xs"
+                  title="สินค้า, ตัวเลือก, ไซส์, ชื่อ, เบอร์, Order ID, ผู้สั่ง, สถานะ — 1 แถวต่อ 1 ตัว"
+                >
+                  👕 ส่งออกรายการสกรีน
+                </button>
+                <label className="flex items-center gap-1 text-[11px] text-zinc-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={printSheetIncludePending}
+                    onChange={(e) => setPrintSheetIncludePending(e.target.checked)}
+                  />
+                  รวมที่รอตรวจสอบ
+                </label>
+              </div>
             </div>
           </div>
 
@@ -742,6 +775,12 @@ export default function AdminView({ onBackToStore }) {
                             <div className="font-mono text-zinc-600 font-bold text-xs mt-0.5">
                               ไซส์: <span className="text-black bg-zinc-100 px-1.5 py-0.5 rounded">{order.size}</span> ({order.color}) × {order.quantity}
                             </div>
+                            {personalizedItems(order.order_items).map((it, idx) => (
+                              <div key={idx} className="mt-1 max-w-[260px]">
+                                <div className="text-[10px] text-zinc-500 truncate">{it.product_name} [{it.size}]</div>
+                                <PersonalizationSummary units={it.personalization} />
+                              </div>
+                            ))}
                             {order.notes && (
                               <div className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded mt-1 max-w-[220px] truncate">
                                 💬 {order.notes}
@@ -1229,6 +1268,14 @@ export default function AdminView({ onBackToStore }) {
                   />
                   แสดงลิงก์ "ตารางเทียบไซส์เสื้อ"
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-zinc-700">
+                  <input
+                    type="checkbox"
+                    checked={productFormData.allow_personalization}
+                    onChange={(e) => setProductFormData({ ...productFormData, allow_personalization: e.target.checked })}
+                  />
+                  ให้ลูกค้าใส่ชื่อ/เบอร์บนเสื้อ (ฟรี)
+                </label>
               </div>
 
               {/* Sizes Selector */}
@@ -1503,6 +1550,18 @@ export default function AdminView({ onBackToStore }) {
                   className="w-full px-3 py-2 bg-zinc-50 border rounded-xl font-mono"
                 />
               </div>
+
+              {editingOrder && personalizedItems(editingOrder.order_items).length > 0 && (
+                <div className="p-3 bg-zinc-50 border rounded-xl space-y-2">
+                  <div className="font-bold text-zinc-700">👕 ชื่อ/เบอร์บนเสื้อ (จากลูกค้า)</div>
+                  {personalizedItems(editingOrder.order_items).map((it, idx) => (
+                    <div key={idx} className="space-y-1">
+                      <div className="text-zinc-600">{it.product_name} <span className="font-mono">[{it.size}{it.color ? `/${it.color}` : ''}]</span> × {it.quantity}</div>
+                      <PersonalizationSummary units={it.personalization} />
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div>
                 <label className="block font-bold text-zinc-700 mb-1">หมายเหตุ (Notes)</label>

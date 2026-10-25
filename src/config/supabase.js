@@ -5,6 +5,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { compressImage } from '../utils/imageCompress';
 import { scopeRefsFromPayload, scopeRowsFromRefs } from '../utils/promotionRefs';
+import { sanitizeOrderItems, appendPersonalizationNote, isMissingOrderItemsColumn } from '../utils/personalization';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -94,7 +95,7 @@ export const api = {
     const allowedCols = [
       'name', 'description', 'price', 'available_sizes', 'available_colors',
       'image_front_url', 'image_back_url', 'is_active', 'order_deadline',
-      'show_promo_badge', 'show_size_chart'
+      'show_promo_badge', 'show_size_chart', 'allow_personalization'
     ];
     const cleanUpdates = {};
     Object.keys(updates).forEach(key => {
@@ -191,12 +192,26 @@ export const api = {
       notes: orderData.notes ? String(orderData.notes).trim() : null,
       payment_status: 'pending'
     };
+    // Structured cart lines (incl. jersey name/number). Customer-written: validated and bounded.
+    const orderItems = sanitizeOrderItems(orderData.order_items);
+    if (orderItems.length > 0) cleanOrder.order_items = orderItems;
 
     if (isLiveSupabase && supabase) {
       try {
-        const { data, error } = await supabase.from('orders').insert([cleanOrder]).select();
+        let { data, error } = await supabase.from('orders').insert([cleanOrder]).select();
         if (!error && data?.[0]) {
           return data[0];
+        }
+        if (error && cleanOrder.order_items && isMissingOrderItemsColumn(error)) {
+          // Migration 0012 not run yet: save without the column, and keep the
+          // names/numbers readable in the free-text part of notes so nothing is lost.
+          console.warn('Supabase submitOrder notice (orders.order_items missing, retrying without it):', error);
+          delete cleanOrder.order_items;
+          cleanOrder.notes = appendPersonalizationNote(cleanOrder.notes, orderItems);
+          ({ data, error } = await supabase.from('orders').insert([cleanOrder]).select());
+          if (!error && data?.[0]) {
+            return data[0];
+          }
         }
         if (error) {
           console.warn('Supabase submitOrder notice (attempting retry without product_id/product_variant_id):', error);

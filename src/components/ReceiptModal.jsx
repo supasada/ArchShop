@@ -1,11 +1,25 @@
 import React from 'react';
 import { formatCurrency, formatDateThai } from '../utils/formatters';
 import { STORE_CONFIG } from '../config/storeConfig';
+import { sanitizeOrderItems } from '../utils/personalization';
+import PersonalizationSummary from './PersonalizationSummary';
 
 export default function ReceiptModal({ order, product, onClose }) {
   if (!order) return null;
 
   const prodName = product?.name || order.products?.name || order.product_name || 'เสื้อสโมสรนักศึกษา 2026';
+  // Cart items right after checkout; the saved order_items when reopened later (e.g. from tracking)
+  const items = Array.isArray(order.items) && order.items.length > 0
+    ? order.items
+    : sanitizeOrderItems(order.order_items).map((it) => ({
+        productName: it.product_name,
+        size: it.size,
+        color: it.color,
+        quantity: it.quantity,
+        price: it.unit_price,
+        personalization: it.personalization
+      }));
+
   const unitPrice = product?.price || (order.quantity > 0 ? (order.total_price / order.quantity) : 219);
 
   return (
@@ -80,11 +94,12 @@ export default function ReceiptModal({ order, product, onClose }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-100">
-              {Array.isArray(order.items) && order.items.length > 0 ? (
-                order.items.map((item, idx) => (
+              {items.length > 0 ? (
+                items.map((item, idx) => (
                   <tr key={item.cartId || idx}>
-                    <td className="py-1.5 font-bold text-zinc-900 truncate max-w-[140px]">
-                      {item.productName || prodName}
+                    <td className="py-1.5 font-bold text-zinc-900 max-w-[140px]">
+                      <div className="truncate">{item.productName || prodName}</div>
+                      <PersonalizationSummary units={item.personalization} className="mt-0.5" />
                     </td>
                     <td className="py-1.5 text-center font-bold">
                       {item.size} {item.color ? `(${item.color})` : ''}
@@ -125,8 +140,8 @@ export default function ReceiptModal({ order, product, onClose }) {
               )}
               {(() => {
                 let rawSum = 0;
-                if (Array.isArray(order.items) && order.items.length > 0) {
-                  rawSum = order.items.reduce((s, it) => s + (Number(it.price) || unitPrice) * (Number(it.quantity) || 1), 0);
+                if (items.length > 0) {
+                  rawSum = items.reduce((s, it) => s + (Number(it.price) || unitPrice) * (Number(it.quantity) || 1), 0);
                 } else {
                   rawSum = unitPrice * (Number(order.quantity) || 1);
                 }

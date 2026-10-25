@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import { api } from '../config/supabase';
 import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
+import PersonalizationFields from './PersonalizationFields';
 
 export default function ProductSelectModal({ product, onClose, onOpenSizeChart, onOpenCart }) {
   const { t } = useLanguage();
@@ -16,6 +17,8 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const [variants, setVariants] = useState([]);
   const [variantQuantities, setVariantQuantities] = useState({});
+  // optional jersey name/number per unit: { base | variantId: [{name, number}] }
+  const [personalization, setPersonalization] = useState({});
 
   const [chartVersion, setChartVersion] = useState(0);
 
@@ -27,6 +30,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     // fresh product: reset the selection
     setVariantQuantities({});
     setVariantSizes({});
+    setPersonalization({});
     setViewImage(null);
     load();
 
@@ -123,23 +127,26 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
     selectedVariants[0]?.images?.[0]?.image_url ||
     (showBack && product.image_back_url ? product.image_back_url : (product.image_front_url || '/assets/images/arch_shirt_front.jpg'));
 
+  const allowPersonalization = product.allow_personalization === true;
+  const setPersonalizationFor = (key) => (list) => setPersonalization((prev) => ({ ...prev, [key]: list }));
+
+  const addSelectionToCart = () => {
+    if (hasVariants) {
+      selectedVariants.forEach((v) => addToCart(product, sizeOfVariant(v), v.name, variantQuantities[v.id], v, personalization[v.id]));
+    } else {
+      addToCart(product, size, color, quantity, null, personalization.base);
+    }
+  };
+
   const handleAddToCart = () => {
     if (isClosed || !canAdd) return;
-    if (hasVariants) {
-      selectedVariants.forEach((v) => addToCart(product, sizeOfVariant(v), v.name, variantQuantities[v.id], v));
-    } else {
-      addToCart(product, size, color, quantity, null);
-    }
+    addSelectionToCart();
     onClose();
   };
 
   const handleBuyNow = () => {
     if (isClosed || !canAdd) return;
-    if (hasVariants) {
-      selectedVariants.forEach((v) => addToCart(product, sizeOfVariant(v), v.name, variantQuantities[v.id], v));
-    } else {
-      addToCart(product, size, color, quantity, null);
-    }
+    addSelectionToCart();
     onClose();
     if (onOpenCart) onOpenCart();
   };
@@ -371,6 +378,27 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                   </button>
                 </div>
               </div>
+            )}
+
+            {/* Jersey name/number — optional and free, one pair per unit */}
+            {allowPersonalization && !isClosed && (
+              hasVariants ? (
+                selectedVariants.map((v) => (
+                  <PersonalizationFields
+                    key={v.id}
+                    title={`ชื่อ/เบอร์บนเสื้อ · ${v.name}`}
+                    quantity={variantQuantities[v.id]}
+                    value={personalization[v.id]}
+                    onChange={setPersonalizationFor(v.id)}
+                  />
+                ))
+              ) : (
+                <PersonalizationFields
+                  quantity={quantity}
+                  value={personalization.base}
+                  onChange={setPersonalizationFor('base')}
+                />
+              )
             )}
 
           </div>
