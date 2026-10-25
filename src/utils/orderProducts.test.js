@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getOrderProductKeys, listOrphanProducts, matchesProductFilter } from './orderProducts';
+import { getOrderProductKeys, listOrphanProducts, matchesProductFilter, countSummaryItems } from './orderProducts';
 
 const products = [
   { id: 'sash', name: 'ผ้าคาด' },
@@ -140,5 +140,16 @@ describe('matchesProductFilter', () => {
     expect(matchesProductFilter(ids(sashAndDoi), ['sash'], 'only')).toBe(false);
     expect(matchesProductFilter(ids(sashAndDoi), ['sash', 'doi'], 'only')).toBe(true);
     expect(matchesProductFilter(ids(sashOnly), ['sash', 'doi'], 'only')).toBe(false);
+  });
+});
+
+describe('countSummaryItems', () => {
+  it('counts the lines of the leading summary', () => {
+    expect(countSummaryItems('[Jersey [M/Black] x2]')).toEqual({ count: 1, complete: true });
+    expect(countSummaryItems('[Jersey [M/Black] x2 | Tee [L/White] x1] note')).toEqual({ count: 2, complete: true });
+    expect(countSummaryItems('[Jersey [M/Black] x2 | Tee')).toEqual({ count: 1, complete: false });
+    expect(countSummaryItems('[broken')).toEqual({ count: 0, complete: false });
+    expect(countSummaryItems('plain note')).toEqual({ count: 1, complete: true });
+    expect(countSummaryItems(null)).toEqual({ count: 1, complete: true });
   });
 });

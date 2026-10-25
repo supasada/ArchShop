@@ -10,6 +10,9 @@ import {
   fromTrackRow,
   resolveSlipSource,
   slipObjectName,
+  slipKey,
+  findSharedSlipKeys,
+  describeOrderInsertError,
   isSlipObjectName,
   SLIP_OBJECT_NAME_RE,
   newOrderId,
@@ -193,5 +196,47 @@ describe('isMissingFunctionError / adminLoginEmail', () => {
   it('adds the default domain to bare usernames', () => {
     expect(adminLoginEmail(' smoarchcmu ')).toBe('smoarchcmu@cmu.ac.th');
     expect(adminLoginEmail('a@b.com')).toBe('a@b.com');
+  });
+});
+
+describe('slipKey / findSharedSlipKeys', () => {
+  const name = 'slip_650610123_1761390000000_0123456789abcdef0123456789abcdef.jpg';
+  const publicUrl = `https://abc.supabase.co/storage/v1/object/public/payment-slips/${name}`;
+  const signedUrl = `https://abc.supabase.co/storage/v1/object/sign/payment-slips/${name}?token=xyz`;
+  it('treats the bare name and legacy public / signed URLs of one object as the same slip', () => {
+    expect(slipKey(name)).toBe(`storage:${name}`);
+    expect(slipKey(publicUrl)).toBe(slipKey(name));
+    expect(slipKey(signedUrl)).toBe(slipKey(name));
+    expect(slipKey('')).toBe('');
+    expect(slipKey(null)).toBe('');
+    expect(slipKey('javascript:alert(1)')).toBe('');
+  });
+  it('returns slips used by more than one order', () => {
+    const shared = findSharedSlipKeys([
+      { id: 1, payment_slip_url: name },
+      { id: 2, payment_slip_url: publicUrl },
+      { id: 3, payment_slip_url: 'https://legacy.example/a.jpg' },
+      { id: 4, payment_slip_url: 'https://legacy.example/a.jpg ' },
+      { id: 5, payment_slip_url: 'https://legacy.example/b.jpg' },
+      { id: 6, payment_slip_url: null },
+      { id: 7, payment_slip_url: null }
+    ]);
+    expect([...shared].sort()).toEqual([`external:https://legacy.example/a.jpg`, `storage:${name}`].sort());
+    expect(findSharedSlipKeys([]).size).toBe(0);
+    expect(findSharedSlipKeys(null).size).toBe(0);
+  });
+});
+
+describe('describeOrderInsertError', () => {
+  it('explains a reused slip (unique index on payment_slip_url)', () => {
+    const msg = describeOrderInsertError({ code: '23505', message: 'duplicate key value violates unique constraint "orders_payment_slip_object_key"', details: 'Key (payment_slip_url)=(slip_1_1_ab.jpg) already exists.' });
+    expect(msg).toMatch(/สลิปนี้ถูกใช้กับคำสั่งซื้ออื่น/);
+  });
+  it('explains a resubmitted order id', () => {
+    expect(describeOrderInsertError({ code: '23505', message: 'duplicate key value violates unique constraint "orders_pkey"' })).toMatch(/ส่งซ้ำ/);
+  });
+  it('ignores other errors', () => {
+    expect(describeOrderInsertError(null)).toBeNull();
+    expect(describeOrderInsertError({ code: '42501', message: 'new row violates row-level security policy' })).toBeNull();
   });
 });

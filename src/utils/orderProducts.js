@@ -45,6 +45,18 @@ function parseSummaryItemNames(notes) {
   return { names, complete: false };
 }
 
+/**
+ * How many cart lines the leading notes summary lists. `complete` is false when the summary
+ * is cut off / malformed / over the cap (there may be lines we could not read).
+ * Notes without a leading "[" summary (single-product orders from the old order form) → 1 line.
+ */
+export function countSummaryItems(notes) {
+  const text = typeof notes === 'string' ? notes : '';
+  if (!text.startsWith('[')) return { count: 1, complete: true };
+  const { names, complete } = parseSummaryItemNames(text);
+  return { count: names.length, complete: complete && names.length > 0 };
+}
+
 function findProductByItemName(itemName, products) {
   // Cart item name is either "Product" or "Product - Variant"; prefer the longest match
   // so "เสื้อ Limited - ดำ" resolves to "เสื้อ Limited" rather than "เสื้อ".

@@ -6,7 +6,8 @@
 -- read every customer's name / phone / student ID / slip, mark orders paid, and delete
 -- orders and products. After it:
 --   * anon / any logged-in user: SELECT catalog tables, INSERT a *pending* order with
---     bounded quantities, a slip object name (not a URL) and a server-set created_at,
+--     bounded quantities, a slip object name (not a URL) that was really uploaded and is
+--     not used by any other order, and a server-set created_at,
 --     upload a payment slip (no read-back), call get_sold_counts()
 --     and track_orders() (exact match, masked phone, no slip / contact / address).
 --   * admin (a row in public.admin_users): everything else.
@@ -184,6 +185,60 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.slip_object_name_pattern() TO anon, authenticated;
 
+-- One slip object = one order. The customer insert policy only accepts a slip name whose object
+-- was really uploaded to the payment-slips bucket (the app uploads before inserting the order),
+-- and the unique index below stops a second order from pointing at the same object.
+-- SECURITY DEFINER because customers cannot read storage.objects; returns a boolean only, and
+-- object names carry a 128-bit random token, so it is no use for listing other slips.
+CREATE OR REPLACE FUNCTION public.slip_object_exists(p_name text)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM storage.objects o
+    WHERE o.bucket_id = 'payment-slips' AND o.name = p_name
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.slip_object_exists(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.slip_object_exists(text) TO anon, authenticated;
+
+-- slip_object_exists() runs as whoever runs this file. If that role were subject to the RLS on
+-- storage.objects it would never see slips and every customer order would be refused: abort.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = current_user AND (rolsuper OR rolbypassrls)) THEN
+    RAISE EXCEPTION 'Run 0016 as the postgres role (Supabase SQL editor): % cannot bypass RLS on storage.objects, so slip_object_exists() would always be false', current_user;
+  END IF;
+END $$;
+
+-- Unique per slip object name. Legacy rows that store a full URL (and NULLs) are left out of
+-- the index, so old duplicates cannot make this fail; the admin page still warns about those.
+-- Names in the app's format can only have been written by this branch, but check first so a
+-- duplicate gives a readable message (and nothing in this file is applied) instead of a bare error.
+DO $$
+DECLARE dups text;
+BEGIN
+  IF to_regclass('public.orders_payment_slip_object_key') IS NOT NULL THEN
+    RETURN;
+  END IF;
+  SELECT string_agg(format('%s (%s orders)', payment_slip_url, n), ', ') INTO dups
+  FROM (
+    SELECT payment_slip_url, count(*) AS n FROM public.orders
+    WHERE payment_slip_url ~ public.slip_object_name_pattern()
+    GROUP BY payment_slip_url HAVING count(*) > 1
+    ORDER BY payment_slip_url LIMIT 20
+  ) d;
+  IF dups IS NOT NULL THEN
+    RAISE EXCEPTION 'Several orders share one slip: %. Check them in the admin page (and clear payment_slip_url on the wrong ones) before running 0016', dups;
+  END IF;
+  CREATE UNIQUE INDEX orders_payment_slip_object_key ON public.orders (payment_slip_url)
+    WHERE payment_slip_url ~ public.slip_object_name_pattern();
+END $$;
+
 -- created_at is set by the database for customer inserts (a forged timestamp could make a
 -- late order look like it came before the deadline). Admin inserts keep their value.
 CREATE OR REPLACE FUNCTION public.orders_force_created_at()
@@ -229,8 +284,12 @@ CREATE POLICY "Customers can submit pending orders" ON public.orders
     AND fulfillment_status = 'pending'
     AND tracking_number IS NULL
     -- the bare object name uploadSlip() writes (slipObjectName in src/utils/security.js):
-    -- no URL scheme, no slashes, so a forged row cannot point the admin at another site
-    AND (payment_slip_url IS NULL OR payment_slip_url ~ public.slip_object_name_pattern())
+    -- no URL scheme, no slashes, so a forged row cannot point the admin at another site;
+    -- and the object must already be in the payment-slips bucket (one order per object:
+    -- orders_payment_slip_object_key)
+    AND (payment_slip_url IS NULL OR (
+          payment_slip_url ~ public.slip_object_name_pattern()
+          AND public.slip_object_exists(payment_slip_url)))
     AND public.order_items_within_limits(order_items)
     AND quantity BETWEEN 1 AND
         (CASE WHEN jsonb_typeof(order_items) = 'array' AND jsonb_array_length(order_items) > 0

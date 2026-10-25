@@ -11,7 +11,8 @@ import { ORDER_SELECT, ORDER_FALLBACK_SELECT, createResubscribeTracker } from '.
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 import {
   SLIP_BUCKET, SLIP_SIGNED_URL_SECONDS, TRACK_RESULT_LIMIT, buildTrackQuery, matchesTrackQuery,
-  toTrackResult, fromTrackRow, resolveSlipSource, slipObjectName, newOrderId, isMissingFunctionError
+  toTrackResult, fromTrackRow, resolveSlipSource, slipObjectName, newOrderId, isMissingFunctionError,
+  describeOrderInsertError
 } from '../utils/security';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -213,6 +214,10 @@ export const api = {
       try {
         ({ error } = await supabase.from('orders').insert([cleanOrder]));
         if (!error) return created();
+        // 23505: this slip is already bound to another order (0016), or the same order was
+        // sent twice. Retrying without columns cannot help.
+        const duplicate = describeOrderInsertError(error);
+        if (duplicate) throw Object.assign(new Error(duplicate), { userFacing: true });
         if (cleanOrder.order_items && isMissingOrderItemsColumn(error)) {
           // Migration 0012 not run yet: save without the column, and keep the
           // names/numbers readable in the free-text part of notes so nothing is lost.
@@ -233,8 +238,11 @@ export const api = {
           if (!error) return created();
         }
       } catch (supaErr) {
+        if (supaErr?.userFacing) throw supaErr;
         error = supaErr;
       }
+      const duplicate = describeOrderInsertError(error);
+      if (duplicate) throw new Error(duplicate);
       // Live database refused the order: say so instead of pretending it was saved
       // (the old local-storage fallback here showed a receipt for an order the club never got).
       console.error('Supabase submitOrder error:', error);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { api, supabase, isLiveSupabase } from '../config/supabase';
 import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocalToDate } from '../utils/formatters';
 import { exportOrdersToCSV, exportPrintSheetToCSV } from '../utils/csvExport';
@@ -14,16 +14,42 @@ import {
 } from '../utils/stock';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { applyOrderChange } from '../utils/orderRealtime';
-import { findUnderpayment } from '../utils/orderPricing';
+import { orderTotalBadge } from '../utils/orderPricing';
 import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { STORE_CONFIG } from '../config/storeConfig';
-import { adminLoginEmail } from '../utils/security';
+import { adminLoginEmail, findSharedSlipKeys, slipKey } from '../utils/security';
 import DeadlineModal from '../components/DeadlineModal';
 import VariantManager from '../components/admin/VariantManager';
 import ProductGalleryManager from '../components/admin/ProductGalleryManager';
 import PromotionManager from '../components/admin/PromotionManager';
 import CountdownEventManager from '../components/admin/CountdownEventManager';
 
+const UNVERIFIABLE_TOOLTIP_TAIL = ' — ระบบคำนวณยอดที่ควรจ่ายจากรายการสินค้าไม่ได้ ตรวจรายการและยอดในสลิปเองก่อนยืนยัน';
+const SHARED_SLIP_TOOLTIP = 'ออร์เดอร์อื่นที่โหลดอยู่ใช้ไฟล์สลิปเดียวกัน — อาจเป็นสลิปที่ถูกนำมาใช้ซ้ำ ตรวจเลขอ้างอิง/เวลาโอนในสลิปกับยอดของทั้งสองออร์เดอร์';
+
+// Result of orderTotalBadge(): red = paid less than expected, amber = could not be checked.
+function TotalCheckBadge({ badge, large = false }) {
+  if (!badge) return null;
+  const size = large ? 'px-2.5 py-1.5 rounded-lg text-[11px]' : 'mt-1 inline-block px-1.5 py-0.5 rounded text-[10px] font-sans whitespace-nowrap';
+  if (badge.status === 'underpaid') {
+    return (
+      <div
+        className={`${size} bg-rose-600 text-white font-bold`}
+        title="คำนวณใหม่จากรายการสินค้าในออร์เดอร์ ด้วยราคาและโปรโมชั่นปัจจุบัน (ถ้าเพิ่งเปลี่ยนราคา/โปรฯ อาจคลาดเคลื่อน) — ตรวจยอดในสลิปก่อนยืนยัน"
+      >
+        {large ? '⚠️ ' : ''}ยอดไม่ตรง (ควรเป็น {formatCurrency(badge.expected)}){large ? ' — คำนวณจากราคาและโปรโมชั่นปัจจุบัน' : ''}
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${size} bg-amber-100 text-amber-900 border border-amber-300 font-bold`}
+      title={badge.message + UNVERIFIABLE_TOOLTIP_TAIL}
+    >
+      ⚠️ ตรวจยอดอัตโนมัติไม่ได้{large ? ` — ${badge.message}` : ''}
+    </div>
+  );
+}
 
 // Local demo mode only (no Supabase configured): a mock login that edits localStorage data.
 // No real password ships in the bundle: set VITE_DEV_ADMIN_PASSWORD, or use the obvious
@@ -191,16 +217,19 @@ export default function AdminView({ onBackToStore }) {
 
   // For the "ยอดไม่ตรง" check: every variant + promotions, loaded once per admin session
   // (products come from fetchData). Nothing is fetched per order.
-  const [pricingRefs, setPricingRefs] = useState({ variants: [], promotions: [] });
+  const [pricingRefs, setPricingRefs] = useState({ variants: [], promotions: [], ready: false });
   useEffect(() => {
     if (!session) return undefined;
     let cancelled = false;
     Promise.all([api.getAllVariants(), api.getPromotions()])
-      .then(([variants, promotions]) => { if (!cancelled) setPricingRefs({ variants: variants || [], promotions: promotions || [] }); })
+      .then(([variants, promotions]) => { if (!cancelled) setPricingRefs({ variants: variants || [], promotions: promotions || [], ready: true }); })
       .catch((err) => console.warn('Admin pricing check notice:', err));
     return () => { cancelled = true; };
   }, [session]);
   const priceCatalog = { products, ...pricingRefs, shippingFee: STORE_CONFIG.faculty.shippingFee };
+  // Slips shared by two or more loaded orders (also legacy URLs, which the DB index skips).
+  const sharedSlipKeys = useMemo(() => findSharedSlipKeys(orders), [orders]);
+  const usesSharedSlip = (order) => sharedSlipKeys.has(slipKey(order?.payment_slip_url));
 
   // Latest products, for joining `products` onto orders that arrive through realtime
   const productsRef = useRef(products);
@@ -982,17 +1011,7 @@ export default function AdminView({ onBackToStore }) {
                           {/* 4. Total Price */}
                           <td className="py-3.5 px-4 font-mono font-bold text-sm text-zinc-900">
                             {formatCurrency(order.total_price)}
-                            {(() => {
-                              const under = findUnderpayment(order, priceCatalog);
-                              return under && (
-                                <div
-                                  className="mt-1 inline-block px-1.5 py-0.5 rounded bg-rose-600 text-white text-[10px] font-sans font-bold whitespace-nowrap"
-                                  title="คำนวณใหม่จากรายการสินค้าในออร์เดอร์ ด้วยราคาและโปรโมชั่นปัจจุบัน (ถ้าเพิ่งเปลี่ยนราคา/โปรฯ อาจคลาดเคลื่อน) — ตรวจยอดในสลิปก่อนยืนยัน"
-                                >
-                                  ยอดไม่ตรง (ควรเป็น {formatCurrency(under.expected)})
-                                </div>
-                              );
-                            })()}
+                            <TotalCheckBadge badge={orderTotalBadge(order, priceCatalog)} />
                           </td>
 
                           {/* 5. Slip Thumbnail / Payment Mode */}
@@ -1009,6 +1028,14 @@ export default function AdminView({ onBackToStore }) {
                               </button>
                             ) : (
                               <span className="text-zinc-400 font-mono text-[11px]">- ไม่มีสลิป -</span>
+                            )}
+                            {usesSharedSlip(order) && (
+                              <div
+                                className="mt-1 mx-auto max-w-[120px] px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-300 text-[10px] font-bold leading-tight"
+                                title={SHARED_SLIP_TOOLTIP}
+                              >
+                                ⚠️ สลิปนี้ถูกใช้ในออเดอร์อื่นด้วย
+                              </div>
                             )}
 
                           </td>
@@ -1359,14 +1386,12 @@ export default function AdminView({ onBackToStore }) {
                       {formatCurrency(selectedSlipOrder.total_price)}
                     </span>
                   </div>
-                  {(() => {
-                    const under = findUnderpayment(selectedSlipOrder, priceCatalog);
-                    return under && (
-                      <div className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-[11px] font-bold">
-                        ⚠️ ยอดไม่ตรง (ควรเป็น {formatCurrency(under.expected)}) — คำนวณจากราคาและโปรโมชั่นปัจจุบัน
-                      </div>
-                    );
-                  })()}
+                  <TotalCheckBadge badge={orderTotalBadge(selectedSlipOrder, priceCatalog)} large />
+                  {usesSharedSlip(selectedSlipOrder) && (
+                    <div className="px-2.5 py-1.5 rounded-lg bg-rose-100 text-rose-800 border border-rose-300 text-[11px] font-bold" title={SHARED_SLIP_TOOLTIP}>
+                      ⚠️ สลิปนี้ถูกใช้ในออเดอร์อื่นด้วย — ตรวจเลขอ้างอิง/เวลาโอนในสลิปให้ตรงกับออร์เดอร์นี้
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <div className="font-bold text-zinc-900">{selectedSlipOrder.full_name}</div>

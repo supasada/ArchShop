@@ -120,6 +120,45 @@ export function resolveSlipSource(stored) {
   return path ? { kind: 'storage', path } : { kind: 'none' };
 }
 
+/**
+ * Key identifying the slip an order points at: the storage object path (so a legacy public
+ * URL, a signed URL and the bare object name of the same file compare equal), otherwise the
+ * trimmed stored value. '' when there is no slip.
+ */
+export function slipKey(stored) {
+  const src = resolveSlipSource(stored);
+  if (src.kind === 'none') return '';
+  return src.kind === 'storage' ? `storage:${src.path}` : `${src.kind}:${src.url}`;
+}
+
+/**
+ * Slips used by more than one of the given (already loaded) orders. Covers legacy full URLs,
+ * which the database unique index (0016) leaves out. → Set of slipKey values.
+ */
+export function findSharedSlipKeys(orders = []) {
+  const seen = new Set();
+  const shared = new Set();
+  for (const o of orders || []) {
+    const key = slipKey(o?.payment_slip_url);
+    if (!key) continue;
+    if (seen.has(key)) shared.add(key);
+    else seen.add(key);
+  }
+  return shared;
+}
+
+/** Postgres unique violation (23505) on the one-order-per-slip index → clear Thai message. */
+export function describeOrderInsertError(error) {
+  if (!error) return null;
+  const code = String(error.code || '');
+  const text = `${error.message || ''} ${error.details || ''}`;
+  if (code !== '23505' && !/duplicate key value/i.test(text)) return null;
+  if (/payment_slip/i.test(text)) {
+    return 'สลิปนี้ถูกใช้กับคำสั่งซื้ออื่นไปแล้ว — หนึ่งสลิปใช้ได้กับหนึ่งคำสั่งซื้อเท่านั้น กรุณาแนบสลิปการโอนของคำสั่งซื้อนี้แล้วลองใหม่';
+  }
+  return 'คำสั่งซื้อนี้ถูกบันทึกไปแล้ว (ส่งซ้ำ) กรุณาตรวจสอบสถานะคำสั่งซื้อก่อนสั่งใหม่';
+}
+
 // What slipObjectName() produces. The same pattern is enforced by the database for customer
 // inserts (public.slip_object_name_pattern(), migration 0016): keep the two in sync.
 export const SLIP_OBJECT_NAME_RE = /^slip_[A-Za-z0-9]{1,20}_[0-9]{1,16}_[0-9a-f]{1,64}\.[a-z0-9]{1,5}$/;
