@@ -4,7 +4,7 @@ import {
 } from '../utils/personalization';
 
 /**
- * Optional, free name/number for each unit (quantity 3 → 3 pairs), with a plain text preview.
+ * Required name/number for each unit (quantity 3 → 3 pairs), with a plain text preview.
  * Values are customer-written and are only ever rendered as text.
  */
 export default function PersonalizationFields({ quantity, value, onChange, title, compact = false }) {
@@ -23,7 +23,7 @@ export default function PersonalizationFields({ quantity, value, onChange, title
     <div className={`space-y-2 ${compact ? '' : 'p-3 bg-white rounded-xl border border-zinc-200'}`}>
       <div className="flex flex-wrap items-baseline justify-between gap-1">
         <span className="text-xs font-mono font-bold text-zinc-800">
-          👕 {title || 'ชื่อ/เบอร์บนเสื้อ'} <span className="text-emerald-600">(ฟรี · ไม่บังคับ)</span>
+          👕 {title || 'ชื่อ/เบอร์บนเสื้อ'} <span className="text-rose-600">*</span>
         </span>
         <span className="text-[10.5px] text-zinc-500">ชื่อไม่เกิน {NAME_MAX_LENGTH} ตัวอักษร · เบอร์เป็นตัวเลขไม่เกิน {NUMBER_MAX_LENGTH} หลัก</span>
       </div>

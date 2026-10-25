@@ -4,7 +4,7 @@ import {
   resizePersonalization, normalizePersonalization, hasPersonalization,
   normalizeCartItem, cartHasPersonalization, buildOrderItems, sanitizeOrderItems,
   formatPersonalizationText, appendPersonalizationNote, isMissingOrderItemsColumn,
-  buildPrintSheetRows, MAX_ORDER_ITEMS
+  buildPrintSheetRows, MAX_ORDER_ITEMS, isPersonalizationComplete, incompletePersonalizationItems
 } from './personalization';
 import { getOrderProductKeys } from './orderProducts';
 
@@ -177,5 +177,25 @@ describe('print sheet rows', () => {
   it('falls back to the saved name when the product was deleted', () => {
     const rows = buildPrintSheetRows([orders[0]], []);
     expect(rows[0].product).toBe('Jersey');
+  });
+});
+
+describe('required name and number', () => {
+  it('needs both a name and a number on every unit', () => {
+    expect(isPersonalizationComplete([{ name: 'A', number: '7' }, { name: 'B', number: '10' }], 2)).toBe(true);
+    expect(isPersonalizationComplete([{ name: 'A', number: '' }], 1)).toBe(false);
+    expect(isPersonalizationComplete([{ name: '  ', number: '7' }], 1)).toBe(false);
+    // quantity grew past the filled units
+    expect(isPersonalizationComplete([{ name: 'A', number: '7' }], 2)).toBe(false);
+    expect(isPersonalizationComplete(undefined, 1)).toBe(false);
+  });
+
+  it('lists only personalizable cart lines that are incomplete', () => {
+    const cart = [
+      { productName: 'Jersey', allowPersonalization: true, quantity: 1, personalization: [{ name: 'A', number: '' }] },
+      { productName: 'Jersey 2', allowPersonalization: true, quantity: 1, personalization: [{ name: 'A', number: '9' }] },
+      { productName: 'Tote', allowPersonalization: false, quantity: 1, personalization: [] }
+    ];
+    expect(incompletePersonalizationItems(cart).map((it) => it.productName)).toEqual(['Jersey']);
   });
 });

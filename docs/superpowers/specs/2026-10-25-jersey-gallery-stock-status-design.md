@@ -11,7 +11,7 @@ promotions, products can only show 2 images, stock limits are not enforced, cust
 production progress, and the Supabase free-tier egress/limits must not be blown.
 
 Owner decisions (verbatim intent):
-- Name/number on the jersey is **optional** and **free** (no price change).
+- Name/number on the jersey is **free** (no price change). Originally optional; changed 2026-10-26: both name and number are **required** on every unit of a personalizable product.
 - **No restriction on language or letter case** for the name.
 - Wants: more than 2 detail images per product; per-size stock limits; step-by-step order status
   (paid → in production → ready for pickup / shipped) with a clear production lead time.

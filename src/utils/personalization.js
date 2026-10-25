@@ -88,6 +88,19 @@ export function normalizeCartItem(item) {
 export const cartHasPersonalization = (cartItems) =>
   Array.isArray(cartItems) && cartItems.some((it) => it?.allowPersonalization && hasPersonalization(it.personalization));
 
+const unitIsComplete = (u) => Boolean(normalizeName(u?.name) && sanitizeNumberInput(u?.number));
+
+/** Name and number are required on every unit of a personalizable product. */
+export function isPersonalizationComplete(list, quantity) {
+  const units = resizePersonalization(list, quantity);
+  return units.length > 0 && units.every(unitIsComplete);
+}
+
+/** Cart lines of personalizable products still missing a name or number on some unit. */
+export const incompletePersonalizationItems = (cartItems) =>
+  (Array.isArray(cartItems) ? cartItems : [])
+    .filter((it) => it?.allowPersonalization && !isPersonalizationComplete(it.personalization, it.quantity));
+
 /** Structured copy of the cart for `orders.order_items`. */
 export function buildOrderItems(cartItems) {
   if (!Array.isArray(cartItems)) return [];

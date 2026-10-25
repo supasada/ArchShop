@@ -7,6 +7,7 @@ import { debounce, REALTIME_DEBOUNCE_MS } from '../utils/debounce';
 import { computePricing, summarizePromotions } from '../utils/pricingEngine';
 import VariantPicker from './VariantPicker';
 import PersonalizationFields from './PersonalizationFields';
+import { isPersonalizationComplete } from '../utils/personalization';
 import { buildProductThumbs } from '../utils/productImages';
 import { indexSoldCounts, remainingFor, maxAddable, stockLabel, cartQtyFor, MAX_QTY_PER_LINE } from '../utils/stock';
 
@@ -197,6 +198,11 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
 
   const allowPersonalization = product.allow_personalization === true;
   const setPersonalizationFor = (key) => (list) => setPersonalization((prev) => ({ ...prev, [key]: list }));
+  // Every unit needs both a name and a number before it can go in the cart
+  const personalizationReady = !allowPersonalization || (hasVariants
+    ? selectedVariants.every((v) => isPersonalizationComplete(personalization[v.id], variantQuantities[v.id]))
+    : isPersonalizationComplete(personalization.base, quantity));
+  const canSubmit = canAdd && personalizationReady;
 
   const addSelectionToCart = () => {
     if (hasVariants) {
@@ -207,13 +213,13 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
   };
 
   const handleAddToCart = () => {
-    if (isClosed || !canAdd) return;
+    if (isClosed || !canSubmit) return;
     addSelectionToCart();
     onClose();
   };
 
   const handleBuyNow = () => {
-    if (isClosed || !canAdd) return;
+    if (isClosed || !canSubmit) return;
     addSelectionToCart();
     onClose();
     if (onOpenCart) onOpenCart();
@@ -472,7 +478,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               </div>
             )}
 
-            {/* Jersey name/number — optional and free, one pair per unit */}
+            {/* Jersey name/number — required, one pair per unit */}
             {allowPersonalization && !isClosed && (
               hasVariants ? (
                 selectedVariants.map((v) => (
@@ -517,6 +523,11 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 ⛔ สินค้าที่เลือกหมดแล้ว (หรือมีในตะกร้าครบจำนวนที่เหลือแล้ว)
               </div>
             )}
+            {canAdd && !personalizationReady && (
+              <div className="pt-1 border-t border-zinc-800 text-[11px] text-amber-300">
+                ✍️ กรอกชื่อและเบอร์บนเสื้อให้ครบทุกตัวก่อนเพิ่มลงตะกร้า
+              </div>
+            )}
             {hasVariants && selectedVariants.length === 0 && (
               <div className="pt-1 border-t border-zinc-800 text-[11px] text-amber-300">
                 💡 เลือกตัวเลือกสินค้าอย่างน้อย 1 อย่างก่อนเพิ่มลงตะกร้า
@@ -537,7 +548,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               <button
                 type="button"
                 onClick={handleAddToCart}
-                disabled={!canAdd}
+                disabled={!canSubmit}
                 className="w-full sm:flex-1 py-3 px-4 bg-white hover:bg-zinc-100 text-zinc-900 border-2 border-zinc-900 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-xs transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span>🛒</span>
@@ -547,7 +558,7 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
               <button
                 type="button"
                 onClick={handleBuyNow}
-                disabled={!canAdd}
+                disabled={!canSubmit}
                 className="w-full sm:flex-1 py-3 px-4 bg-zinc-900 hover:bg-black text-white font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-2 shadow-md transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <span>💳</span>

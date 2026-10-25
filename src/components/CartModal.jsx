@@ -5,7 +5,7 @@ import { api } from '../config/supabase';
 import { useLanguage } from '../context/LanguageContext';
 import { useCart } from '../context/CartContext';
 import { summarizePromotions } from '../utils/pricingEngine';
-import { buildOrderItems, cartHasPersonalization } from '../utils/personalization';
+import { buildOrderItems, cartHasPersonalization, incompletePersonalizationItems } from '../utils/personalization';
 import PersonalizationFields from './PersonalizationFields';
 import { indexSoldCounts, checkCartStock } from '../utils/stock';
 
@@ -118,6 +118,12 @@ export default function CartModal({ isOpen, onClose, onSuccess }) {
     }
     if (deliveryMethod === 'shipping' && (!address || address.length < 5)) {
       alert(t.errAddress || 'กรุณากรอกที่อยู่จัดส่งพัสดุให้ครบถ้วน');
+      return;
+    }
+
+    const incomplete = incompletePersonalizationItems(cartItems);
+    if (incomplete.length > 0) {
+      alert(`กรุณากรอกชื่อและเบอร์บนเสื้อให้ครบทุกตัว: ${incomplete.map((it) => it.productName).join(', ')}`);
       return;
     }
 

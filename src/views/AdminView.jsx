@@ -1549,7 +1549,7 @@ export default function AdminView({ onBackToStore }) {
                     checked={productFormData.allow_personalization}
                     onChange={(e) => setProductFormData({ ...productFormData, allow_personalization: e.target.checked })}
                   />
-                  ให้ลูกค้าใส่ชื่อ/เบอร์บนเสื้อ (ฟรี)
+                  ให้ลูกค้าใส่ชื่อ/เบอร์บนเสื้อ (บังคับกรอก)
                 </label>
               </div>
 
