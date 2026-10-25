@@ -6,10 +6,12 @@
 // is a prompt to check the slip, not proof of fraud.
 //
 // Fails CLOSED: an order that cannot be priced (unknown product / variant, unreadable lines,
-// a multi-item legacy order, catalog not loaded yet) is reported as 'unverifiable', never as
-// fine, so a forged order cannot dodge the check by pointing at a product that does not exist.
+// a legacy order whose notes summary does not confirm product_id x quantity, catalog not loaded
+// yet) is reported as 'unverifiable', never as fine, so a forged order cannot dodge the check by
+// pointing at a product that does not exist. (After 0016 customers cannot insert orders without
+// order_items, so the legacy path only applies to rows written before it.)
 import { computePricing } from './pricingEngine';
-import { countSummaryItems } from './orderProducts';
+import { readSummaryItems, findProductByItemName } from './orderProducts';
 
 export const PRICE_TOLERANCE = 1; // baht
 
@@ -25,6 +27,8 @@ export const UNVERIFIABLE_REASONS = {
   unknown_variant: 'ออร์เดอร์อ้างถึงตัวเลือกสินค้าที่ไม่มีในระบบ (ถูกลบ หรือรหัสปลอม)',
   no_price: 'สินค้าในออร์เดอร์ไม่มีราคาในระบบ',
   legacy_multi_item: 'ออร์เดอร์เก่าที่มีหลายรายการ ไม่มีรายละเอียดราคาแยกรายการ',
+  legacy_no_summary: 'ออร์เดอร์เก่าไม่มีสรุปรายการสินค้าที่อ่านได้',
+  legacy_mismatch: 'ออร์เดอร์เก่า: ชื่อสินค้า/จำนวนในสรุปรายการไม่ตรงกับรหัสสินค้า/จำนวนของออร์เดอร์',
   legacy_no_product: 'ออร์เดอร์เก่าไม่มีรหัสสินค้า',
   legacy_bad_quantity: 'จำนวนสินค้าในออร์เดอร์ผิดรูปแบบ'
 };
@@ -59,14 +63,21 @@ export function priceOrder(order, { products = [], variants = [], promotions = [
 
   const cart = [];
   if (raw == null || (Array.isArray(raw) && raw.length === 0)) {
-    // Legacy order (before order_items): one row = product_id / product_variant_id x quantity,
-    // but only when the notes summary shows a single cart line. Multi-item legacy carts only
-    // stored the first product, so they cannot be priced.
-    const summary = countSummaryItems(order?.notes);
-    if (!summary.complete || summary.count !== 1) return unverifiable('legacy_multi_item');
-    if (!order?.product_id && !order?.product_variant_id) return unverifiable('legacy_no_product');
+    // Legacy order (before order_items): priced as product_id / product_variant_id x quantity,
+    // but only when the notes summary confirms it: readable, exactly one cart line, whose name
+    // resolves to order.product_id and whose xQty equals order.quantity. Anything else (no
+    // summary, multi-item carts that only stored the first product, mismatches) is unverifiable.
+    const items = readSummaryItems(order?.notes);
+    if (!items) return unverifiable('legacy_no_summary');
+    if (items.length !== 1) return unverifiable('legacy_multi_item');
+    if (!order?.product_id) return unverifiable('legacy_no_product');
     const quantity = Number(order?.quantity);
     if (!isStrictQty(quantity, MAX_LEGACY_QTY)) return unverifiable('legacy_bad_quantity');
+    if (!productById.has(order.product_id)) return unverifiable('unknown_product');
+    const named = findProductByItemName(items[0].name, products);
+    if (!named || named.id !== order.product_id || items[0].quantity !== quantity) {
+      return unverifiable('legacy_mismatch');
+    }
     const r = lookupLine({ productId: order.product_id, variantId: order.product_variant_id, quantity }, productById, variantById);
     if (!r.ok) return r;
     cart.push(r.line);

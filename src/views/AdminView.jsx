@@ -25,7 +25,10 @@ import PromotionManager from '../components/admin/PromotionManager';
 import CountdownEventManager from '../components/admin/CountdownEventManager';
 
 const UNVERIFIABLE_TOOLTIP_TAIL = ' — ระบบคำนวณยอดที่ควรจ่ายจากรายการสินค้าไม่ได้ ตรวจรายการและยอดในสลิปเองก่อนยืนยัน';
-const SHARED_SLIP_TOOLTIP = 'ออร์เดอร์อื่นที่โหลดอยู่ใช้ไฟล์สลิปเดียวกัน — อาจเป็นสลิปที่ถูกนำมาใช้ซ้ำ ตรวจเลขอ้างอิง/เวลาโอนในสลิปกับยอดของทั้งสองออร์เดอร์';
+// Only the same uploaded file is detected. The same slip image uploaded again (new file name)
+// is NOT detected, so the admin must check the bank reference / amount / time on every slip.
+const SHARED_SLIP_TOOLTIP = 'ออร์เดอร์อื่นที่โหลดอยู่ใช้ไฟล์สลิปเดียวกัน — อาจเป็นสลิปที่ถูกนำมาใช้ซ้ำ ตรวจเลขอ้างอิง/ยอดเงิน/เวลาโอนในสลิปกับทั้งสองออร์เดอร์ ' +
+  '(หมายเหตุ: ระบบตรวจได้เฉพาะไฟล์เดียวกันเท่านั้น ถ้ารูปสลิปเดิมถูกอัปโหลดใหม่เป็นไฟล์ชื่ออื่น ระบบจะตรวจไม่พบ — ต้องตรวจเลขอ้างอิง/ยอดเงิน/เวลาโอนทุกสลิปเอง)';
 
 // Result of orderTotalBadge(): red = paid less than expected, amber = could not be checked.
 function TotalCheckBadge({ badge, large = false }) {

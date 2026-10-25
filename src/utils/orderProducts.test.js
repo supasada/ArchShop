@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { getOrderProductKeys, listOrphanProducts, matchesProductFilter, countSummaryItems } from './orderProducts';
+import { getOrderProductKeys, listOrphanProducts, matchesProductFilter, readSummaryItems, findProductByItemName } from './orderProducts';
 
 const products = [
   { id: 'sash', name: 'ผ้าคาด' },
@@ -143,13 +143,28 @@ describe('matchesProductFilter', () => {
   });
 });
 
-describe('countSummaryItems', () => {
-  it('counts the lines of the leading summary', () => {
-    expect(countSummaryItems('[Jersey [M/Black] x2]')).toEqual({ count: 1, complete: true });
-    expect(countSummaryItems('[Jersey [M/Black] x2 | Tee [L/White] x1] note')).toEqual({ count: 2, complete: true });
-    expect(countSummaryItems('[Jersey [M/Black] x2 | Tee')).toEqual({ count: 1, complete: false });
-    expect(countSummaryItems('[broken')).toEqual({ count: 0, complete: false });
-    expect(countSummaryItems('plain note')).toEqual({ count: 1, complete: true });
-    expect(countSummaryItems(null)).toEqual({ count: 1, complete: true });
+describe('readSummaryItems', () => {
+  it('returns the lines (name + quantity) of a readable leading summary', () => {
+    expect(readSummaryItems('[Jersey [M/Black] x2]')).toEqual([{ name: 'Jersey', quantity: 2 }]);
+    expect(readSummaryItems('[Jersey [M/Black] x2 | Tee - Home [L/White] x1] note'))
+      .toEqual([{ name: 'Jersey', quantity: 2 }, { name: 'Tee - Home', quantity: 1 }]);
+    expect(readSummaryItems('[เสื้อ [Limited] [M/Black] x3]')).toEqual([{ name: 'เสื้อ [Limited]', quantity: 3 }]);
+  });
+  it('returns null when there is no readable summary', () => {
+    expect(readSummaryItems('[Jersey [M/Black] x2 | Tee')).toBeNull();
+    expect(readSummaryItems('[broken')).toBeNull();
+    expect(readSummaryItems('[]')).toBeNull();
+    expect(readSummaryItems('plain note')).toBeNull();
+    expect(readSummaryItems(null)).toBeNull();
+  });
+});
+
+describe('findProductByItemName', () => {
+  const products = [{ id: 'a', name: 'เสื้อ' }, { id: 'b', name: 'เสื้อ Limited' }];
+  it('matches "Product" or "Product - Variant", longest name first', () => {
+    expect(findProductByItemName('เสื้อ', products)?.id).toBe('a');
+    expect(findProductByItemName('เสื้อ Limited - ดำ', products)?.id).toBe('b');
+    expect(findProductByItemName('เสื้อยืด', products)).toBeNull();
+    expect(findProductByItemName('x', null)).toBeNull();
   });
 });

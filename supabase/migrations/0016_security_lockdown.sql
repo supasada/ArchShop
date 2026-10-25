@@ -6,8 +6,11 @@
 -- read every customer's name / phone / student ID / slip, mark orders paid, and delete
 -- orders and products. After it:
 --   * anon / any logged-in user: SELECT catalog tables, INSERT a *pending* order with
---     bounded quantities, a slip object name (not a URL) that was really uploaded and is
---     not used by any other order, and a server-set created_at,
+--     a non-empty order_items array, bounded quantities, a slip object name (not a URL)
+--     that was really uploaded and is not used by any other order, and a server-set
+--     created_at. (Only reuse of the same uploaded slip OBJECT is caught: the same image
+--     re-uploaded under a new name is NOT detected — the admin must still check the bank
+--     reference, amount and transfer time on every slip.)
 --     upload a payment slip (no read-back), call get_sold_counts()
 --     and track_orders() (exact match, masked phone, no slip / contact / address).
 --   * admin (a row in public.admin_users): everything else.
@@ -188,6 +191,9 @@ GRANT EXECUTE ON FUNCTION public.slip_object_name_pattern() TO anon, authenticat
 -- One slip object = one order. The customer insert policy only accepts a slip name whose object
 -- was really uploaded to the payment-slips bucket (the app uploads before inserting the order),
 -- and the unique index below stops a second order from pointing at the same object.
+-- This only catches reuse of the same uploaded OBJECT. The same image (or a screenshot of it)
+-- uploaded again gets a new object name and is NOT detected: the admin must still check the
+-- bank reference, amount and transfer time on every slip.
 -- SECURITY DEFINER because customers cannot read storage.objects; returns a boolean only, and
 -- object names carry a 128-bit random token, so it is no use for listing other slips.
 CREATE OR REPLACE FUNCTION public.slip_object_exists(p_name text)
@@ -275,8 +281,10 @@ REVOKE TRUNCATE ON public.orders FROM authenticated;
 GRANT INSERT ON public.orders TO anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.orders TO authenticated;
 
--- quantity (the order's total units): 1–20 when there are no order_items (legacy single
--- line, counted directly by get_sold_counts), otherwise 1–1000 (50 lines x 20).
+-- Customer orders must carry a non-empty order_items array (the app always sends one since
+-- 0012), so every new customer order is priced line by line in the admin page and never
+-- takes the legacy product_id x quantity path. Admins may still insert anything.
+-- quantity (the order's total units): 1–1000 (50 lines x 20).
 CREATE POLICY "Customers can submit pending orders" ON public.orders
   FOR INSERT TO anon, authenticated
   WITH CHECK (
@@ -290,10 +298,12 @@ CREATE POLICY "Customers can submit pending orders" ON public.orders
     AND (payment_slip_url IS NULL OR (
           payment_slip_url ~ public.slip_object_name_pattern()
           AND public.slip_object_exists(payment_slip_url)))
+    -- CASE so jsonb_array_length() is never evaluated on a non-array (it would raise)
+    AND (CASE WHEN jsonb_typeof(order_items) = 'array'
+              THEN jsonb_array_length(order_items) >= 1
+              ELSE false END)
     AND public.order_items_within_limits(order_items)
-    AND quantity BETWEEN 1 AND
-        (CASE WHEN jsonb_typeof(order_items) = 'array' AND jsonb_array_length(order_items) > 0
-              THEN 1000 ELSE 20 END)
+    AND quantity BETWEEN 1 AND 1000
   );
 
 CREATE POLICY "Admins can insert orders" ON public.orders

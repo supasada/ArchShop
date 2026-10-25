@@ -6,7 +6,7 @@
  */
 
 // What must follow the "]" closing an item's [size/color]: " xQty" then " | " or the final "]"
-const ITEM_TAIL = /\] x\d+( \| |\])/y;
+const ITEM_TAIL = /\] x(\d+)( \| |\])/y;
 
 // Notes are written by the customer's browser, so anyone can post an order with a
 // forged summary. Bound how much of it can reach the admin UI.
@@ -14,17 +14,17 @@ const MAX_ITEMS_PER_ORDER = 50;
 const MAX_ORPHAN_NAME_LENGTH = 80;
 const MAX_ORPHAN_CHIPS = 30;
 
-// Item names from the leading "[Name [size/color] xQty | ...]" summary of notes.
+// Items (name + quantity) from the leading "[Name [size/color] xQty | ...]" summary of notes.
 // Hand-rolled single forward pass: notes are customer-written, so a backtracking
 // regex here could be made to freeze the admin page.
 // `complete` is false when the summary is cut off, malformed or over the item cap,
 // i.e. the order may contain items we did not read.
-function parseSummaryItemNames(notes) {
-  const names = [];
-  if (!notes.startsWith('[')) return { names, complete: true };
+function parseSummaryItems(notes) {
+  const items = [];
+  if (!notes.startsWith('[')) return { items, complete: true };
   let start = 1;
   let search = start;
-  while (search < notes.length && names.length < MAX_ITEMS_PER_ORDER) {
+  while (search < notes.length && items.length < MAX_ITEMS_PER_ORDER) {
     const nameEnd = notes.indexOf(' [', search);
     if (nameEnd === -1) break;
     if (nameEnd === start) { search = start + 1; continue; }
@@ -37,31 +37,40 @@ function parseSummaryItemNames(notes) {
       search = close + 1;
       continue;
     }
-    names.push(notes.slice(start, nameEnd));
-    if (tail[1] === ']') return { names, complete: true };
+    items.push({ name: notes.slice(start, nameEnd), quantity: Number(tail[1]) });
+    if (tail[2] === ']') return { items, complete: true };
     start = ITEM_TAIL.lastIndex;
     search = start;
   }
-  return { names, complete: false };
+  return { items, complete: false };
+}
+
+const parseSummaryItemNames = (notes) => {
+  const { items, complete } = parseSummaryItems(notes);
+  return { names: items.map((it) => it.name), complete };
+};
+
+/**
+ * The cart lines of the leading notes summary, as [{ name, quantity }], or null when there is
+ * no readable summary (no leading "[" summary, cut off, malformed, empty or over the cap).
+ * Used by the legacy price check, which must not guess.
+ */
+export function readSummaryItems(notes) {
+  const text = typeof notes === 'string' ? notes : '';
+  if (!text.startsWith('[')) return null;
+  const { items, complete } = parseSummaryItems(text);
+  return complete && items.length > 0 ? items.map((it) => ({ name: it.name.trim(), quantity: it.quantity })) : null;
 }
 
 /**
- * How many cart lines the leading notes summary lists. `complete` is false when the summary
- * is cut off / malformed / over the cap (there may be lines we could not read).
- * Notes without a leading "[" summary (single-product orders from the old order form) → 1 line.
+ * The product a summary item name refers to: "Product" or "Product - Variant", longest name wins.
+ * null when no product matches.
  */
-export function countSummaryItems(notes) {
-  const text = typeof notes === 'string' ? notes : '';
-  if (!text.startsWith('[')) return { count: 1, complete: true };
-  const { names, complete } = parseSummaryItemNames(text);
-  return { count: names.length, complete: complete && names.length > 0 };
-}
-
-function findProductByItemName(itemName, products) {
+export function findProductByItemName(itemName, products = []) {
   // Cart item name is either "Product" or "Product - Variant"; prefer the longest match
   // so "เสื้อ Limited - ดำ" resolves to "เสื้อ Limited" rather than "เสื้อ".
   let best = null;
-  for (const p of products) {
+  for (const p of products || []) {
     if (!p?.name) continue;
     if (itemName === p.name || itemName.startsWith(`${p.name} - `)) {
       if (!best || p.name.length > best.name.length) best = p;

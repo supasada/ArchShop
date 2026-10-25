@@ -141,6 +141,10 @@ describe('order_items', () => {
     expect(isMissingOrderItemsColumn({ code: '42703', message: 'column "order_items" of relation "orders" does not exist' })).toBe(true);
     expect(isMissingOrderItemsColumn({ code: '23503', message: 'violates foreign key constraint' })).toBe(false);
     expect(isMissingOrderItemsColumn(null)).toBe(false);
+    // other missing columns, RLS refusals or check errors never drop order_items
+    expect(isMissingOrderItemsColumn({ code: 'PGRST204', message: "Could not find the 'delivery_method' column of 'orders' in the schema cache" })).toBe(false);
+    expect(isMissingOrderItemsColumn({ code: '42501', message: 'new row violates row-level security policy for table "orders"' })).toBe(false);
+    expect(isMissingOrderItemsColumn({ code: '23514', message: 'order_items check failed' })).toBe(false);
   });
 });
 

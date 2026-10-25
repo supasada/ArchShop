@@ -5,7 +5,7 @@ const P1 = '11111111-1111-4111-8111-111111111111';
 const P2 = '22222222-2222-4222-8222-222222222222';
 const V1 = 'aaaaaaaa-1111-4111-8111-111111111111';
 
-const products = [{ id: P1, price: 299 }, { id: P2, price: 219 }];
+const products = [{ id: P1, name: 'Jersey', price: 299 }, { id: P2, name: 'Tee', price: 219 }];
 const variants = [{ id: V1, product_id: P1, price: 350 }];
 const promotions = [
   { id: 'q', type: 'quantity_break', is_active: true, applies_to_all: false, quantity: 2, bundle_price: 400, scope_variants: [{ product_id: P2 }] }
@@ -36,26 +36,39 @@ describe('expectedOrderTotal', () => {
 
 describe('priceOrder: legacy orders (no order_items)', () => {
   const legacy = (over) => ({ order_items: null, product_id: P1, product_variant_id: null, quantity: 2, notes: '[Jersey [M/Black] x2]', ...over });
-  it('prices a single-item legacy order from product_id x quantity', () => {
+  it('prices a single-item legacy order whose summary confirms product_id x quantity', () => {
     expect(priceOrder(legacy(), catalog)).toEqual({ ok: true, expected: 598 });
     expect(priceOrder(legacy({ order_items: [] }), catalog)).toEqual({ ok: true, expected: 598 });
-    expect(priceOrder(legacy({ notes: 'old form, no summary' }), catalog)).toEqual({ ok: true, expected: 598 });
-    expect(priceOrder(legacy({ notes: null, quantity: 1 }), catalog)).toEqual({ ok: true, expected: 299 });
+    expect(priceOrder(legacy({ notes: '[Jersey [M/Black] x2] please hurry' }), catalog)).toEqual({ ok: true, expected: 598 });
   });
-  it('uses product_variant_id when set (also without product_id) and applies promotions', () => {
-    expect(priceOrder(legacy({ product_variant_id: V1, quantity: 1 }), catalog)).toEqual({ ok: true, expected: 350 });
-    expect(priceOrder(legacy({ product_id: null, product_variant_id: V1, quantity: 1 }), catalog)).toEqual({ ok: true, expected: 350 });
-    expect(priceOrder(legacy({ product_id: P2, notes: null }), catalog)).toEqual({ ok: true, expected: 400 });
+  it('uses product_variant_id when set and applies promotions', () => {
+    expect(priceOrder(legacy({ product_variant_id: V1, quantity: 1, notes: '[Jersey - Home [M/Home] x1]' }), catalog)).toEqual({ ok: true, expected: 350 });
+    expect(priceOrder(legacy({ product_id: P2, notes: '[Tee [L/White] x2]' }), catalog)).toEqual({ ok: true, expected: 400 });
   });
-  it('is unverifiable for multi-item, unreadable-summary, product-less or unknown legacy orders', () => {
+  it('is unverifiable without a readable one-line summary', () => {
+    expect(priceOrder(legacy({ notes: 'old form, no summary' }), catalog)).toEqual({ ok: false, reason: 'legacy_no_summary' });
+    expect(priceOrder(legacy({ notes: null }), catalog)).toEqual({ ok: false, reason: 'legacy_no_summary' });
+    expect(priceOrder(legacy({ notes: '[Jersey [M/Black] x1 | Tee [L/Wh' }), catalog)).toEqual({ ok: false, reason: 'legacy_no_summary' });
+    expect(priceOrder(legacy({ notes: '[broken' }), catalog)).toEqual({ ok: false, reason: 'legacy_no_summary' });
     expect(priceOrder(legacy({ notes: '[Jersey [M/Black] x1 | Tee [L/White] x1]' }), catalog)).toEqual({ ok: false, reason: 'legacy_multi_item' });
-    expect(priceOrder(legacy({ notes: '[Jersey [M/Black] x1 | Tee [L/Wh' }), catalog)).toEqual({ ok: false, reason: 'legacy_multi_item' });
+  });
+  it('is unverifiable when the summary does not match product_id / quantity', () => {
+    // summary names another product than product_id (e.g. cheap product_id, expensive item)
+    expect(priceOrder(legacy({ product_id: P2, notes: '[Jersey [M/Black] x2]' }), catalog)).toEqual({ ok: false, reason: 'legacy_mismatch' });
+    // summary name matches no product
+    expect(priceOrder(legacy({ notes: '[Hoodie [M/Black] x2]' }), catalog)).toEqual({ ok: false, reason: 'legacy_mismatch' });
+    // xQty differs from quantity
+    expect(priceOrder(legacy({ quantity: 1 }), catalog)).toEqual({ ok: false, reason: 'legacy_mismatch' });
+    expect(priceOrder(legacy({ notes: '[Jersey [M/Black] x3]' }), catalog)).toEqual({ ok: false, reason: 'legacy_mismatch' });
+  });
+  it('is unverifiable for product-less, unknown or bad-quantity legacy orders', () => {
     expect(priceOrder(legacy({ product_id: null }), catalog)).toEqual({ ok: false, reason: 'legacy_no_product' });
+    expect(priceOrder(legacy({ product_id: null, product_variant_id: V1 }), catalog)).toEqual({ ok: false, reason: 'legacy_no_product' });
     expect(priceOrder(legacy({ product_id: 'gone' }), catalog)).toEqual({ ok: false, reason: 'unknown_product' });
     expect(priceOrder(legacy({ product_variant_id: 'gone' }), catalog)).toEqual({ ok: false, reason: 'unknown_variant' });
     expect(priceOrder(legacy({ quantity: 0 }), catalog)).toEqual({ ok: false, reason: 'legacy_bad_quantity' });
     expect(priceOrder(legacy({ quantity: 'x' }), catalog)).toEqual({ ok: false, reason: 'legacy_bad_quantity' });
-    expect(priceOrder({}, catalog)).toEqual({ ok: false, reason: 'legacy_no_product' });
+    expect(priceOrder({}, catalog)).toEqual({ ok: false, reason: 'legacy_no_summary' });
   });
 });
 
@@ -95,8 +108,10 @@ describe('checkOrderTotal', () => {
       .toEqual({ status: 'unverifiable', expected: null, reason: 'unknown_product' });
   });
   it('checks single-item legacy orders too', () => {
-    expect(checkOrderTotal({ total_price: 1, product_id: P1, quantity: 1, order_items: null }, catalog))
+    expect(checkOrderTotal({ total_price: 1, product_id: P1, quantity: 1, notes: '[Jersey [M/Black] x1]', order_items: null }, catalog))
       .toEqual({ status: 'underpaid', expected: 299 });
+    expect(checkOrderTotal({ total_price: 1, product_id: P1, quantity: 1, notes: null, order_items: null }, catalog))
+      .toEqual({ status: 'unverifiable', expected: null, reason: 'legacy_no_summary' });
   });
 });
 

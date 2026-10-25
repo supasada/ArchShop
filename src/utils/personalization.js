@@ -175,10 +175,15 @@ export function appendPersonalizationNote(notes, orderItems) {
   return base ? `${base} (${line})` : `(${line})`;
 }
 
-/** The insert failed because `orders.order_items` does not exist yet (migration 0012 not run). */
+/**
+ * The insert failed because `orders.order_items` does not exist yet (migration 0012 not run).
+ * Strict on purpose: only a missing-column error (PostgREST PGRST204 / Postgres 42703) that names
+ * order_items. submitOrder drops order_items only in that case; after 0016 (which requires 0012)
+ * this can never match, and an order without order_items would be refused by RLS anyway.
+ */
 export function isMissingOrderItemsColumn(error) {
   if (!error) return false;
-  if (error.code === 'PGRST204') return true;
+  if (error.code !== 'PGRST204' && error.code !== '42703') return false;
   return /order_items/i.test(`${error.message || ''} ${error.details || ''} ${error.hint || ''}`);
 }
 
