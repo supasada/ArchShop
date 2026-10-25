@@ -6,6 +6,7 @@ import { useLanguage } from '../context/LanguageContext';
 import ReceiptModal from './ReceiptModal';
 import PersonalizationSummary from './PersonalizationSummary';
 import { personalizedItems } from '../utils/personalization';
+import { getFulfillmentProgress } from '../utils/fulfillment';
 
 export default function TrackingModal({ isOpen, onClose }) {
   const { t, lang } = useLanguage();
@@ -36,6 +37,14 @@ export default function TrackingModal({ isOpen, onClose }) {
     setTerm('');
     setResults(null);
   };
+
+  const stepLabel = (key) => ({
+    paid: t.stepPaid || 'ชำระแล้ว',
+    in_production: t.stepInProduction || 'ส่งผลิต',
+    ready: t.stepReady || 'พร้อมรับ',
+    shipped: t.stepShipped || 'จัดส่งแล้ว',
+    completed: t.stepCompleted || 'เสร็จสิ้น'
+  }[key]);
 
   const formatOrderDate = (dateStr) => {
     if (!dateStr) return '-';
@@ -152,6 +161,52 @@ export default function TrackingModal({ isOpen, onClose }) {
                         </span>
                       </div>
                     </div>
+
+                    {/* Fulfillment timeline: ชำระแล้ว → ส่งผลิต → พร้อมรับ / จัดส่งแล้ว → เสร็จสิ้น */}
+                    {(() => {
+                      const progress = getFulfillmentProgress(order);
+                      if (progress.state === 'rejected') {
+                        return (
+                          <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] font-bold flex items-center gap-1.5">
+                            <span className="w-4 h-4 rounded-full bg-rose-600 text-white flex items-center justify-center text-[9px]">✕</span>
+                            <span>{t.stepRejected || 'การชำระเงินไม่ผ่านการตรวจสอบ'}</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="space-y-2">
+                          <div className="text-[10px] font-mono text-zinc-400 uppercase">{t.fulfillmentTitle || 'สถานะคำสั่งซื้อ'}</div>
+                          {progress.state === 'awaiting_payment' && (
+                            <div className="px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-[11px] font-bold">
+                              ⏳ {t.stepAwaitingPayment || 'รอตรวจสอบการชำระเงิน'}
+                            </div>
+                          )}
+                          <ol className="grid grid-cols-4 gap-1">
+                            {progress.steps.map((step, idx) => (
+                              <li key={step.key} className="flex flex-col items-center text-center gap-1">
+                                <div className="flex items-center w-full">
+                                  <div className={`h-0.5 flex-1 ${idx === 0 ? 'invisible' : step.reached ? 'bg-emerald-500' : 'bg-zinc-200'}`}></div>
+                                  <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                                    step.reached
+                                      ? 'bg-emerald-500 text-white'
+                                      : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
+                                  } ${step.current ? 'ring-2 ring-emerald-200' : ''}`}>
+                                    {step.reached ? '✓' : idx + 1}
+                                  </span>
+                                  <div className={`h-0.5 flex-1 ${idx === progress.steps.length - 1 ? 'invisible' : progress.steps[idx + 1].reached ? 'bg-emerald-500' : 'bg-zinc-200'}`}></div>
+                                </div>
+                                <span className={`text-[10px] leading-tight ${step.current ? 'font-bold text-zinc-900' : step.reached ? 'text-zinc-700' : 'text-zinc-400'}`}>
+                                  {stepLabel(step.key)}
+                                </span>
+                                {step.key === 'shipped' && step.reached && order.tracking_number && (
+                                  <span className="text-[9.5px] font-mono font-bold text-emerald-800 break-all">{order.tracking_number}</span>
+                                )}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                      );
+                    })()}
 
                     {/* Order Details Grid */}
                     <div className="grid grid-cols-2 gap-2 text-[11px] bg-zinc-50 p-3 rounded-lg border border-zinc-100">

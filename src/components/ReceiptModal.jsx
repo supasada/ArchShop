@@ -20,6 +20,14 @@ export default function ReceiptModal({ order, product, onClose }) {
         personalization: it.personalization
       }));
 
+  // Production lead time(s): from the cart lines right after checkout; when reopened later
+  // (saved order_items carry no note) fall back to the order's own product.
+  const cleanNotes = (list) => [...new Set(list.map((n) => (typeof n === 'string' ? n.trim() : '')).filter(Boolean))];
+  const itemNotes = cleanNotes(items.map((it) => it.productionNote));
+  const productionNotes = itemNotes.length > 0
+    ? itemNotes
+    : cleanNotes([product?.production_note, order.products?.production_note]);
+
   const unitPrice = product?.price || (order.quantity > 0 ? (order.total_price / order.quantity) : 219);
 
   return (
@@ -196,8 +204,14 @@ export default function ReceiptModal({ order, product, onClose }) {
                   : '⏳ รอตรวจสอบสลิป'}
               </span>
             </div>
-
-
+            {productionNotes.length > 0 && (
+              <div className="pt-1 border-t border-zinc-200">
+                <span className="text-zinc-500">ระยะเวลาผลิต:</span>
+                {productionNotes.map((n, idx) => (
+                  <div key={idx} className="font-bold text-zinc-900 whitespace-pre-line">{n}</div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Signatures */}

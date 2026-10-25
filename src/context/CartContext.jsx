@@ -93,7 +93,8 @@ export function CartProvider({ children }) {
           personalization: units,
           imageFrontUrl: variant?.images?.[0]?.image_url || product.image_front_url || '/assets/images/arch_shirt_front.jpg',
           imageBackUrl: product.image_back_url,
-          deadline: product.order_deadline
+          deadline: product.order_deadline,
+          productionNote: product.production_note || null
         };
         return [...prevItems, newItem];
       }

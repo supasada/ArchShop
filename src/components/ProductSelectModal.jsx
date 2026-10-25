@@ -230,6 +230,11 @@ export default function ProductSelectModal({ product, onClose, onOpenSizeChart, 
                 <p className="text-xs text-zinc-600 mt-2 leading-relaxed line-clamp-3">
                   {product.description || 'เสื้อกิจกรรมสโมสรนักศึกษาคณะสถาปัตยกรรมศาสตร์ มหาวิทยาลัยเชียงใหม่'}
                 </p>
+                {product.production_note && (
+                  <div className="mt-2 px-2.5 py-1.5 bg-sky-50 border border-sky-200 rounded-lg text-[11px] text-sky-900 whitespace-pre-line">
+                    <span className="font-bold">⏱️ ระยะเวลาผลิต:</span> {product.production_note}
+                  </div>
+                )}
               </div>
 
               {/* Size Chart Shortcut — only variants that have a size chart */}

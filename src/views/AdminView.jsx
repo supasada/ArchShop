@@ -4,6 +4,10 @@ import { formatCurrency, formatDateThai, formatDateToInputLocal, parseInputLocal
 import { exportOrdersToCSV, exportPrintSheetToCSV } from '../utils/csvExport';
 import { personalizedItems } from '../utils/personalization';
 import PersonalizationSummary from '../components/PersonalizationSummary';
+import {
+  FULFILLMENT_STATUSES, FULFILLMENT_LABELS, FULFILLMENT_BADGE_CLASSES,
+  normalizeFulfillmentStatus, bulkFulfillmentTargets, isMissingFulfillmentColumn
+} from '../utils/fulfillment';
 import { getOrderProductKeys, isOrphanKey, listOrphanProducts, matchesProductFilter } from '../utils/orderProducts';
 import { STORE_CONFIG } from '../config/storeConfig';
 import DeadlineModal from '../components/DeadlineModal';
@@ -30,6 +34,9 @@ export default function AdminView({ onBackToStore }) {
   const [printSheetIncludePending, setPrintSheetIncludePending] = useState(false);
   const [productFilter, setProductFilter] = useState([]); // selected product ids
   const [productFilterMode, setProductFilterMode] = useState('any'); // any | all | only
+  const [fulfillmentFilter, setFulfillmentFilter] = useState('all');
+  const [bulkFulfillmentStatus, setBulkFulfillmentStatus] = useState('in_production');
+  const [bulkFulfillmentLoading, setBulkFulfillmentLoading] = useState(false);
 
   // Slip Inspector state
   const [selectedSlipOrder, setSelectedSlipOrder] = useState(null);
@@ -51,6 +58,7 @@ export default function AdminView({ onBackToStore }) {
     show_promo_badge: true,
     show_size_chart: true,
     allow_personalization: false,
+    production_note: '',
     order_deadline: ''
   });
   const [uploadingFront, setUploadingFront] = useState(false);
@@ -75,6 +83,7 @@ export default function AdminView({ onBackToStore }) {
     shipping_address: '',
     notes: '',
     payment_status: 'pending',
+    fulfillment_status: 'pending',
     tracking_number: ''
   });
 
@@ -256,6 +265,7 @@ export default function AdminView({ onBackToStore }) {
       shipping_address: order.shipping_address || '',
       notes: order.notes || '',
       payment_status: order.payment_status || 'pending',
+      fulfillment_status: normalizeFulfillmentStatus(order.fulfillment_status),
       tracking_number: order.tracking_number || ''
     });
     setIsOrderEditModalOpen(true);
@@ -266,14 +276,45 @@ export default function AdminView({ onBackToStore }) {
     if (!editingOrder) return;
     setLoading(true);
     try {
-      await api.updateOrder(editingOrder.id, orderFormData);
+      const payload = { ...orderFormData };
+      // Only send fulfillment_status when the column exists (migration 0014) or it was changed,
+      // so editing still works on a database where 0014 has not been run yet.
+      if (!('fulfillment_status' in editingOrder) && payload.fulfillment_status === 'pending') {
+        delete payload.fulfillment_status;
+      }
+      await api.updateOrder(editingOrder.id, payload);
       alert('✅ บันทึกการแก้ไขลง Supabase เรียบร้อยแล้ว');
       setIsOrderEditModalOpen(false);
       fetchData();
     } catch (err) {
-      alert('บันทึกคำสั่งซื้อไม่สำเร็จ: ' + err.message);
+      alert('บันทึกคำสั่งซื้อไม่สำเร็จ: ' + err.message + (isMissingFulfillmentColumn(err)
+        ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ fulfillment_status — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
+        : ''));
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Bulk: set fulfillment status on every order currently shown (confirmed payment only)
+  const handleBulkFulfillment = async () => {
+    const ids = bulkFulfillmentTargets(filteredOrders);
+    if (ids.length === 0) return alert('ไม่มีออร์เดอร์ที่ยืนยันการชำระเงินแล้วในรายการที่แสดงอยู่');
+    const label = FULFILLMENT_LABELS[bulkFulfillmentStatus];
+    if (!window.confirm(`เปลี่ยนสถานะเป็น "${label}" ให้ออร์เดอร์ที่ยืนยันการชำระเงินแล้ว ${ids.length} รายการ (จากที่แสดงอยู่ ${filteredOrders.length} รายการ)?`)) return;
+    setBulkFulfillmentLoading(true);
+    try {
+      await api.bulkUpdateFulfillment(ids, bulkFulfillmentStatus);
+      const idSet = new Set(ids);
+      setOrders(prev => prev.map(o => idSet.has(o.id) ? { ...o, fulfillment_status: bulkFulfillmentStatus } : o));
+      alert(`✅ เปลี่ยนสถานะ ${ids.length} รายการเรียบร้อย`);
+      fetchData();
+    } catch (err) {
+      alert('เปลี่ยนสถานะไม่สำเร็จ: ' + err.message + (isMissingFulfillmentColumn(err)
+        ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ fulfillment_status — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
+        : ''));
+      fetchData();
+    } finally {
+      setBulkFulfillmentLoading(false);
     }
   };
 
@@ -294,6 +335,7 @@ export default function AdminView({ onBackToStore }) {
       show_promo_badge: true,
       show_size_chart: true,
       allow_personalization: false,
+      production_note: '',
       order_deadline: formatDateToInputLocal(new Date(Date.now() + 14 * 24 * 60 * 60 * 1000))
     });
     setIsProductModalOpen(true);
@@ -313,6 +355,7 @@ export default function AdminView({ onBackToStore }) {
       show_promo_badge: p.show_promo_badge ?? true,
       show_size_chart: p.show_size_chart ?? true,
       allow_personalization: p.allow_personalization === true,
+      production_note: p.production_note || '',
       order_deadline: p.order_deadline ? formatDateToInputLocal(p.order_deadline) : ''
     });
     setIsProductModalOpen(true);
@@ -353,6 +396,11 @@ export default function AdminView({ onBackToStore }) {
     if (productFormData.allow_personalization || (editingProduct && 'allow_personalization' in editingProduct)) {
       payload.allow_personalization = Boolean(productFormData.allow_personalization);
     }
+    // Same for production_note (migration 0014)
+    const productionNote = (productFormData.production_note || '').trim();
+    if (productionNote || (editingProduct && 'production_note' in editingProduct)) {
+      payload.production_note = productionNote || null;
+    }
 
     setLoading(true);
     try {
@@ -369,6 +417,8 @@ export default function AdminView({ onBackToStore }) {
       const missingColumn = /allow_personalization/i.test(err?.message || '');
       alert('บันทึกสินค้าไม่สำเร็จ: ' + err.message + (missingColumn
         ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ allow_personalization — กรุณารัน supabase/migrations/0012_order_items_personalization.sql ก่อน'
+        : isMissingFulfillmentColumn(err)
+        ? '\n\nฐานข้อมูลยังไม่มีคอลัมน์ production_note — กรุณารัน supabase/migrations/0014_fulfillment_status.sql ก่อน'
         : ''));
     } finally {
       setLoading(false);
@@ -413,6 +463,7 @@ export default function AdminView({ onBackToStore }) {
   // Filter orders
   const filteredOrders = orders.filter((o) => {
     if (statusFilter !== 'all' && o.payment_status !== statusFilter) return false;
+    if (fulfillmentFilter !== 'all' && normalizeFulfillmentStatus(o.fulfillment_status) !== fulfillmentFilter) return false;
     if (!matchesProductFilter(getOrderProductKeys(o, products), productFilter, productFilterMode)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
@@ -634,6 +685,17 @@ export default function AdminView({ onBackToStore }) {
                 <option value="rejected">✕ ปฏิเสธ (Rejected)</option>
               </select>
 
+              <select
+                value={fulfillmentFilter}
+                onChange={(e) => setFulfillmentFilter(e.target.value)}
+                className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold"
+              >
+                <option value="all">สถานะการผลิต/จัดส่งทั้งหมด</option>
+                {FULFILLMENT_STATUSES.map((s) => (
+                  <option key={s} value={s}>{FULFILLMENT_LABELS[s]}</option>
+                ))}
+              </select>
+
               <button
                 type="button"
                 onClick={() => exportOrdersToCSV(filteredOrders, products)}
@@ -661,6 +723,31 @@ export default function AdminView({ onBackToStore }) {
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* Bulk fulfillment status for the orders currently shown */}
+          <div className="bg-white p-4 rounded-2xl border border-zinc-200 flex flex-wrap items-center gap-2 shadow-xs">
+            <span className="text-xs font-bold text-zinc-700">สถานะการผลิต/จัดส่ง:</span>
+            <select
+              value={bulkFulfillmentStatus}
+              onChange={(e) => setBulkFulfillmentStatus(e.target.value)}
+              className="px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-bold"
+            >
+              {FULFILLMENT_STATUSES.map((s) => (
+                <option key={s} value={s}>{FULFILLMENT_LABELS[s]}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={bulkFulfillmentLoading || bulkFulfillmentTargets(filteredOrders).length === 0}
+              onClick={handleBulkFulfillment}
+              className="px-3.5 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-xs disabled:opacity-50"
+            >
+              {bulkFulfillmentLoading ? 'กำลังบันทึก...' : 'เปลี่ยนสถานะที่แสดงอยู่ทั้งหมด'}
+            </button>
+            <span className="text-[11px] text-zinc-500 font-mono">
+              เฉพาะที่ยืนยันการชำระเงินแล้ว: {bulkFulfillmentTargets(filteredOrders).length} / {filteredOrders.length} รายการ
+            </span>
           </div>
 
           {/* Product filter: pick one or more products + how they must match */}
@@ -824,6 +911,16 @@ export default function AdminView({ onBackToStore }) {
                               <span>{order.payment_status === 'confirmed' ? '✓' : order.payment_status === 'rejected' ? '✕' : '⏳'}</span>
                               <span>{order.payment_status}</span>
                             </span>
+                            {order.payment_status === 'confirmed' && (() => {
+                              const fs = normalizeFulfillmentStatus(order.fulfillment_status);
+                              return (
+                                <div className="mt-1">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${FULFILLMENT_BADGE_CLASSES[fs]}`}>
+                                    {FULFILLMENT_LABELS[fs]}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* 7. Quick 1-Click Action Buttons */}
@@ -1251,6 +1348,18 @@ export default function AdminView({ onBackToStore }) {
                 ></textarea>
               </div>
 
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">ระยะเวลาผลิต / หมายเหตุการผลิต</label>
+                <textarea
+                  rows="2"
+                  placeholder="เช่น ผลิต 3–4 สัปดาห์หลังปิดรับ"
+                  value={productFormData.production_note}
+                  onChange={(e) => setProductFormData({ ...productFormData, production_note: e.target.value })}
+                  className="w-full px-3.5 py-2 bg-zinc-50 border rounded-xl"
+                ></textarea>
+                <p className="text-[10px] text-zinc-400 mt-1">แสดงในหน้าสินค้าและใบเสร็จ</p>
+              </div>
+
               {/* Display toggles */}
               <div className="flex flex-col gap-2 p-3 bg-zinc-50 border rounded-xl">
                 <label className="flex items-center gap-2 cursor-pointer font-bold text-zinc-700">
@@ -1543,6 +1652,22 @@ export default function AdminView({ onBackToStore }) {
                     <option value="rejected">rejected (ปฏิเสธ)</option>
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block font-bold text-zinc-700 mb-1">สถานะการผลิต/จัดส่ง</label>
+                <select
+                  value={orderFormData.fulfillment_status}
+                  onChange={(e) => setOrderFormData({ ...orderFormData, fulfillment_status: e.target.value })}
+                  className="w-full px-3 py-2 bg-zinc-50 border rounded-xl font-bold"
+                >
+                  {FULFILLMENT_STATUSES.map((s) => (
+                    <option key={s} value={s}>{FULFILLMENT_LABELS[s]}</option>
+                  ))}
+                </select>
+                {orderFormData.payment_status !== 'confirmed' && orderFormData.fulfillment_status !== 'pending' && (
+                  <p className="text-[10px] text-amber-700 mt-1">ออร์เดอร์นี้ยังไม่ยืนยันการชำระเงิน — ลูกค้าจะเห็นเป็น "รอตรวจสอบการชำระเงิน" จนกว่าจะยืนยัน</p>
+                )}
               </div>
 
               <div>

@@ -6,6 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 import { compressImage } from '../utils/imageCompress';
 import { scopeRefsFromPayload, scopeRowsFromRefs } from '../utils/promotionRefs';
 import { sanitizeOrderItems, appendPersonalizationNote, isMissingOrderItemsColumn } from '../utils/personalization';
+import { FULFILLMENT_STATUSES, chunkIds } from '../utils/fulfillment';
 import { MOCK_PRODUCTS, MOCK_ORDERS } from '../data/mockData';
 
 const supabaseUrl = import.meta.env?.VITE_SUPABASE_URL || localStorage.getItem('archshop_supabase_url') || 'https://your-project.supabase.co';
@@ -95,7 +96,7 @@ export const api = {
     const allowedCols = [
       'name', 'description', 'price', 'available_sizes', 'available_colors',
       'image_front_url', 'image_back_url', 'is_active', 'order_deadline',
-      'show_promo_badge', 'show_size_chart', 'allow_personalization'
+      'show_promo_badge', 'show_size_chart', 'allow_personalization', 'production_note'
     ];
     const cleanUpdates = {};
     Object.keys(updates).forEach(key => {
@@ -317,7 +318,7 @@ export const api = {
       'product_id', 'product_variant_id', 'full_name', 'student_id', 'year_of_study', 'major',
       'phone_number', 'email_or_line_id', 'color', 'size', 'quantity',
       'total_price', 'payment_slip_url', 'delivery_method', 'shipping_address',
-      'notes', 'payment_status', 'tracking_number'
+      'notes', 'payment_status', 'tracking_number', 'fulfillment_status'
     ];
     const cleanUpdates = {};
     Object.keys(updates).forEach(key => {
@@ -339,6 +340,31 @@ export const api = {
     orders = orders.map(o => o.id === id ? { ...o, ...cleanUpdates } : o);
     localStorage.setItem('archshop_mock_orders', JSON.stringify(orders));
     return orders.find(o => o.id === id);
+  },
+
+  // Set fulfillment_status on many orders: one UPDATE ... WHERE id IN (...) per 200 ids
+  // (not one request per order). Returns the number of ids sent.
+  async bulkUpdateFulfillment(ids, status) {
+    if (!FULFILLMENT_STATUSES.includes(status)) throw new Error('สถานะไม่ถูกต้อง: ' + status);
+    const list = [...new Set((Array.isArray(ids) ? ids : []).filter(Boolean))];
+    if (list.length === 0) return 0;
+
+    if (isLiveSupabase && supabase) {
+      for (const chunk of chunkIds(list, 200)) {
+        const { error } = await supabase.from('orders').update({ fulfillment_status: status }).in('id', chunk);
+        if (error) {
+          console.error('Supabase bulkUpdateFulfillment error:', error);
+          throw error;
+        }
+      }
+      return list.length;
+    }
+    const local = localStorage.getItem('archshop_mock_orders');
+    let orders = local ? JSON.parse(local) : MOCK_ORDERS;
+    const idSet = new Set(list);
+    orders = orders.map(o => idSet.has(o.id) ? { ...o, fulfillment_status: status } : o);
+    localStorage.setItem('archshop_mock_orders', JSON.stringify(orders));
+    return list.length;
   },
 
   async updateOrderStatus(id, payment_status) {
